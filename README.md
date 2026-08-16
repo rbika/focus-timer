@@ -4,6 +4,8 @@ macOS menu bar countdown timer.
 
 Requires **macOS 26 (Tahoe)** or newer.
 
+![Screenshot of Focus Timer](./screenshots/focus-timer.png)
+
 ## Features
 
 - Live countdown and controls in the menu bar
