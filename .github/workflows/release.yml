@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Test, build, and draft release
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Verify tag matches app version
+        run: |
+          version="$(cargo metadata --no-deps --format-version 1 --manifest-path src-tauri/Cargo.toml | jq -r '.packages[0].version')"
+          test "$GITHUB_REF_NAME" = "v$version" || {
+            echo "::error::Tag $GITHUB_REF_NAME does not match Cargo version v$version"
+            exit 1
+          }
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Type-check frontend
+        run: npm run typecheck
+
+      - name: Test Rust
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Lint Rust
+        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: Build app and create draft release
+        uses: tauri-apps/tauri-action@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Focus Timer ${{ github.ref_name }}
+          generateReleaseNotes: true
+          releaseDraft: true
+          prerelease: false
+          args: --target universal-apple-darwin
