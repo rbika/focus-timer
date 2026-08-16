@@ -1,8 +1,15 @@
 # Focus Timer
 
-macOS menu bar countdown timer built with Tauri v2, React 19, TypeScript, and Rust.
+macOS menu bar countdown timer.
 
 Requires **macOS 26 (Tahoe)** or newer.
+
+## Features
+
+- Live countdown and controls in the menu bar
+- Configurable completion sounds
+- Automatic pause when your Mac sleeps
+- Persistent timer when app is closed
 
 ## Develop
 
