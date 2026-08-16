@@ -1,0 +1,171 @@
+mod app_state;
+mod commands;
+mod persistence;
+mod sleep;
+mod sound;
+mod timer;
+mod tray;
+
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
+
+use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
+
+use app_state::AppState;
+use persistence::Persistence;
+use sleep::SleepDetector;
+use timer::TimerStatus;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .invoke_handler(tauri::generate_handler![
+            commands::get_snapshot,
+            commands::get_settings,
+            commands::update_settings,
+            commands::set_duration,
+            commands::start,
+            commands::pause,
+            commands::resume,
+            commands::toggle_pause,
+            commands::reset,
+            commands::toggle_icon_only,
+            commands::show_timer_window,
+            commands::hide_timer_window,
+            commands::toggle_timer_window,
+            commands::open_settings,
+            commands::get_system_sounds,
+            commands::preview_sound,
+            commands::quit_app,
+        ])
+        .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| PathBuf::from(".").join("focus-timer-data"));
+            let persistence = Persistence::new(data_dir);
+            let (settings, engine, main_window_position) = persistence.load();
+            let state = AppState::new(persistence, settings, engine, main_window_position);
+            // Ensure a state file exists immediately for crash recovery.
+            let _ = state.persist();
+            app.manage(state);
+
+            sync_autostart(app.handle());
+            tray::create_tray(app.handle())?;
+            tray::position_main_window(app.handle());
+            wire_window_events(app.handle());
+            start_tick_loop(app.handle().clone());
+
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if window.label() == "main" {
+                    tray::save_main_window_position(window.app_handle());
+                }
+                let _ = window.hide();
+            }
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running Focus Timer");
+}
+
+fn sync_autostart(app: &tauri::AppHandle) {
+    let enabled = app
+        .state::<AppState>()
+        .settings
+        .lock()
+        .expect("settings")
+        .start_at_login;
+    let autostart = app.autolaunch();
+    if enabled {
+        let _ = autostart.enable();
+    } else {
+        let _ = autostart.disable();
+    }
+}
+
+fn wire_window_events(app: &tauri::AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let app_handle = app.clone();
+        main.on_window_event(move |event| {
+            if let tauri::WindowEvent::Focused(false) = event {
+                tray::hide_main_window_on_unfocus(&app_handle);
+            }
+        });
+    }
+}
+
+fn start_tick_loop(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let mut detector = {
+            let remaining = app.state::<AppState>().snapshot().remaining_secs;
+            SleepDetector::new(remaining)
+        };
+
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+
+            let state = app.state::<AppState>();
+
+            if let Some(remaining_before_sleep) = detector.poll_sleep() {
+                let pause_on_sleep = state.settings.lock().expect("settings").pause_on_sleep;
+                let mut engine = state.engine.lock().expect("engine");
+                if pause_on_sleep && engine.status() == TimerStatus::Running {
+                    engine.restore_paused(remaining_before_sleep);
+                    drop(engine);
+                    let _ = state.persist();
+                    let snapshot = state.snapshot();
+                    tray::update_tray_title(&app, &snapshot.formatted);
+                    tray::refresh_tray_menu(&app);
+                    tray::emit_tick_if_visible(&app, &snapshot);
+                    detector.note_remaining(snapshot.remaining_secs);
+                    continue;
+                }
+            }
+
+            let completed = {
+                let mut engine = state.engine.lock().expect("engine");
+                engine.tick(SystemTime::now())
+            };
+
+            let snapshot = state.snapshot();
+            detector.note_remaining(snapshot.remaining_secs);
+
+            tray::update_tray_title(&app, &snapshot.formatted);
+            tray::emit_tick_if_visible(&app, &snapshot);
+
+            if completed {
+                let (sound_enabled, completion_sound) = {
+                    let settings = state.settings.lock().expect("settings");
+                    (settings.sound_enabled, settings.completion_sound.clone())
+                };
+                if sound_enabled {
+                    sound::play_named_sound(&completion_sound);
+                }
+                let _ = state.persist();
+                tray::refresh_tray_menu(&app);
+                let _ = app.emit("timer-completed", &snapshot);
+                let _ = app.emit("timer-tick", &snapshot);
+            } else if snapshot.status == TimerStatus::Running {
+                let mut ticks = state.ticks_since_persist.lock().expect("ticks");
+                *ticks += 1;
+                if *ticks >= 5 {
+                    *ticks = 0;
+                    drop(ticks);
+                    let _ = state.persist();
+                }
+            }
+        }
+    });
+}

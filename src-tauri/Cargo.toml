@@ -1,0 +1,30 @@
+[package]
+name = "focus-timer"
+version = "0.1.0"
+description = "Native macOS menu bar focus timer"
+authors = ["rbika"]
+edition = "2021"
+
+[lib]
+name = "focus_timer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSFont", "NSFontDescriptor", "NSSound"] }
+objc2-foundation = { version = "0.3", features = ["NSString"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
