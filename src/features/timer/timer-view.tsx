@@ -119,7 +119,10 @@ export function TimerView() {
 
   return (
     <div className="flex h-full flex-col">
-      <WindowTitleBar title="Focus Timer" />
+      <WindowTitleBar
+        title="Focus Timer"
+        onOpenSettings={() => void api.openSettings()}
+      />
       <main className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-3">
         {isActive ? (
           <>
