@@ -247,8 +247,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             let _ = crate::commands::open_settings(app.clone());
         }
         "quit" => {
-            save_main_window_position(app);
-            app.exit(0);
+            crate::commands::quit_app(app.clone());
         }
         _ => {}
     }

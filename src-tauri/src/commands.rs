@@ -238,6 +238,12 @@ pub fn preview_sound(name: String) {
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     crate::tray::save_main_window_position(&app);
+    let state = app.state::<AppState>();
+    {
+        let mut engine = state.engine.lock().expect("engine lock");
+        engine.pause(SystemTime::now());
+    }
+    let _ = state.persist();
     app.exit(0);
 }
 
