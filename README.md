@@ -8,10 +8,10 @@ Requires **macOS 26 (Tahoe)** or newer.
 
 ## Features
 
-- Live countdown and controls in the menu bar
-- Configurable completion sounds
-- Automatic pause when your Mac sleeps
-- Persistent timer when app is closed
+- Live menu bar timer.
+- Light and dark mode support.
+- Timer state preserved across app restarts.
+- Automatic pausing when your Mac sleeps.
 
 ## Installation instructions
 
@@ -27,13 +27,6 @@ Requires **macOS 26 (Tahoe)** or newer.
 ```bash
 npm install
 npm run tauri dev
-```
-
-## Test
-
-```bash
-cd src-tauri && cargo test
-npm run typecheck
 ```
 
 ## Architecture
