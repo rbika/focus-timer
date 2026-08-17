@@ -13,6 +13,15 @@ Requires **macOS 26 (Tahoe)** or newer.
 - Automatic pause when your Mac sleeps
 - Persistent timer when app is closed
 
+## Installation instructions
+
+1. Download the latest `.dgm` file from [Github Releases page](https://github.com/rbika/focus-timer/releases).
+2. Open and move the app into Applications folder.
+3. Run the following command in the terminal to remove quarantine flag:
+   ```shell
+   xattr -cr /Applications/Focus\ Timer.app
+   ```
+
 ## Develop
 
 ```bash
