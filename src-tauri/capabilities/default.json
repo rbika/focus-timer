@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Focus Timer windows",
-  "windows": ["main", "settings"],
+  "windows": ["main", "settings", "release-notes"],
   "permissions": [
     "core:default",
     "core:window:allow-show",
@@ -15,6 +15,10 @@
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
-    "opener:default"
+    "opener:default",
+    "updater:default",
+    "dialog:allow-ask",
+    "dialog:allow-message",
+    "process:allow-restart"
   ]
 }

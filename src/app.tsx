@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 import { SettingsView } from '@/features/settings/settings-view'
 import { TimerView } from '@/features/timer/timer-view'
+import { ReleaseNotesView } from '@/features/updates/release-notes-view'
 import { subscribeToBackend } from '@/store/timer-store'
 
 export default function App() {
@@ -23,6 +24,14 @@ export default function App() {
     return (
       <div className="h-full bg-[canvas]">
         <SettingsView />
+      </div>
+    )
+  }
+
+  if (label === 'release-notes') {
+    return (
+      <div className="h-full bg-[canvas]">
+        <ReleaseNotesView />
       </div>
     )
   }

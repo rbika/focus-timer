@@ -34,6 +34,7 @@ pub fn update_settings(app: AppHandle, settings: Settings) -> Result<Settings, S
             sound_enabled: settings.sound_enabled,
             icon_only: settings.icon_only,
             completion_sound: settings.completion_sound,
+            auto_check_for_updates: settings.auto_check_for_updates,
         };
     }
 
@@ -238,6 +239,28 @@ pub fn preview_sound(name: String) {
 pub fn quit_app(app: AppHandle) {
     crate::tray::save_main_window_position(&app);
     app.exit(0);
+}
+
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<crate::updater::UpdateStatus, String> {
+    crate::updater::run_check(app, true).await
+}
+
+#[tauri::command]
+pub fn get_update_status(app: AppHandle) -> crate::updater::UpdateStatus {
+    crate::updater::current_status(&app)
+}
+
+#[tauri::command]
+pub fn get_pending_release_notes(
+    app: AppHandle,
+) -> Option<crate::persistence::PendingReleaseNotes> {
+    crate::updater::pending_release_for_current_version(&app)
+}
+
+#[tauri::command]
+pub fn acknowledge_release_notes(app: AppHandle) -> Result<(), String> {
+    crate::updater::acknowledge_release_notes(&app)
 }
 
 fn after_control(app: &AppHandle) -> Result<TimerSnapshot, String> {

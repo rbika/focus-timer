@@ -5,6 +5,7 @@ mod sleep;
 mod sound;
 mod timer;
 mod tray;
+mod updater;
 
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -25,6 +26,9 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
             commands::get_settings,
@@ -43,6 +47,10 @@ pub fn run() {
             commands::get_system_sounds,
             commands::preview_sound,
             commands::quit_app,
+            commands::check_for_updates,
+            commands::get_update_status,
+            commands::get_pending_release_notes,
+            commands::acknowledge_release_notes,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -53,8 +61,14 @@ pub fn run() {
                 .app_data_dir()
                 .unwrap_or_else(|_| PathBuf::from(".").join("focus-timer-data"));
             let persistence = Persistence::new(data_dir);
-            let (settings, engine, main_window_position) = persistence.load();
-            let state = AppState::new(persistence, settings, engine, main_window_position);
+            let (settings, engine, main_window_position, updater_meta) = persistence.load();
+            let state = AppState::new(
+                persistence,
+                settings,
+                engine,
+                main_window_position,
+                updater_meta,
+            );
             // Ensure a state file exists immediately for crash recovery.
             let _ = state.persist();
             app.manage(state);
@@ -64,6 +78,8 @@ pub fn run() {
             tray::position_main_window(app.handle());
             wire_window_events(app.handle());
             start_tick_loop(app.handle().clone());
+            updater::start_background_checks(app.handle().clone());
+            updater::show_release_notes_if_needed(app.handle());
 
             Ok(())
         })

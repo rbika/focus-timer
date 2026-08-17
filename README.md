@@ -15,7 +15,7 @@ Requires **macOS 26 (Tahoe)** or newer.
 
 ## Installation instructions
 
-1. Download the latest `.dgm` file from [Github Releases page](https://github.com/rbika/focus-timer/releases).
+1. Download the latest `.dmg` file from [Github Releases page](https://github.com/rbika/focus-timer/releases).
 2. Open and move the app into Applications folder.
 3. Run the following command in the terminal to remove quarantine flag:
    ```shell
@@ -38,5 +38,5 @@ npm run typecheck
 
 ## Architecture
 
-- **Rust** owns the timer engine, persistence, tray, sleep detection, and completion sound.
-- **React** renders the timer panel and settings window only — no countdown polling.
+- **Rust** owns the timer engine, persistence, tray, sleep detection, completion sound, and updater flow.
+- **React** renders the timer panel, settings window, and release notes window only — no countdown polling.

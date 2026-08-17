@@ -6,6 +6,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::timer::{TimerEngine, TimerStatus};
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_completion_sound() -> String {
+    "Glass".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -17,10 +25,27 @@ pub struct Settings {
     pub icon_only: bool,
     #[serde(default = "default_completion_sound")]
     pub completion_sound: String,
+    #[serde(default = "default_true")]
+    pub auto_check_for_updates: bool,
 }
 
-fn default_completion_sound() -> String {
-    "Glass".to_string()
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingReleaseNotes {
+    pub version: String,
+    #[serde(default)]
+    pub date: Option<String>,
+    #[serde(default)]
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdaterMeta {
+    #[serde(default)]
+    pub last_auto_check_unix: Option<u64>,
+    #[serde(default)]
+    pub pending_release: Option<PendingReleaseNotes>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -38,6 +63,7 @@ impl Default for Settings {
             sound_enabled: true,
             icon_only: false,
             completion_sound: default_completion_sound(),
+            auto_check_for_updates: true,
         }
     }
 }
@@ -59,6 +85,8 @@ struct PersistedState {
     timer: PersistedTimer,
     #[serde(default)]
     main_window_position: Option<WindowPosition>,
+    #[serde(default)]
+    updater: UpdaterMeta,
 }
 
 pub struct Persistence {
@@ -72,12 +100,22 @@ impl Persistence {
         }
     }
 
-    pub fn load(&self) -> (Settings, TimerEngine, Option<WindowPosition>) {
+    pub fn load(&self) -> (Settings, TimerEngine, Option<WindowPosition>, UpdaterMeta) {
         let Ok(bytes) = fs::read(&self.path) else {
-            return (Settings::default(), TimerEngine::default(), None);
+            return (
+                Settings::default(),
+                TimerEngine::default(),
+                None,
+                UpdaterMeta::default(),
+            );
         };
         let Ok(state) = serde_json::from_slice::<PersistedState>(&bytes) else {
-            return (Settings::default(), TimerEngine::default(), None);
+            return (
+                Settings::default(),
+                TimerEngine::default(),
+                None,
+                UpdaterMeta::default(),
+            );
         };
 
         let duration = state.timer.duration_secs.max(1);
@@ -104,7 +142,12 @@ impl Persistence {
             }
         }
 
-        (state.settings, engine, state.main_window_position)
+        (
+            state.settings,
+            engine,
+            state.main_window_position,
+            state.updater,
+        )
     }
 
     pub fn save(
@@ -112,6 +155,7 @@ impl Persistence {
         settings: &Settings,
         engine: &TimerEngine,
         main_window_position: Option<WindowPosition>,
+        updater: &UpdaterMeta,
     ) -> Result<(), String> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -133,6 +177,7 @@ impl Persistence {
                 deadline_unix,
             },
             main_window_position,
+            updater: updater.clone(),
         };
 
         let json = serde_json::to_vec_pretty(&state).map_err(|e| e.to_string())?;
@@ -162,6 +207,7 @@ mod tests {
         assert!(s.sound_enabled);
         assert!(!s.icon_only);
         assert_eq!(s.completion_sound, "Glass");
+        assert!(s.auto_check_for_updates);
     }
 
     #[test]
@@ -182,15 +228,24 @@ mod tests {
         engine.start(now);
         engine.pause(now + Duration::from_secs(20));
         let position = WindowPosition { x: 420, y: 32 };
+        let updater = UpdaterMeta {
+            last_auto_check_unix: Some(1_700_000_000),
+            pending_release: Some(PendingReleaseNotes {
+                version: "1.1.0".into(),
+                date: Some("2026-08-16T12:00:00Z".into()),
+                notes: Some("- Faster ticks".into()),
+            }),
+        };
         persistence
-            .save(&settings, &engine, Some(position))
+            .save(&settings, &engine, Some(position), &updater)
             .unwrap();
 
-        let (loaded_settings, loaded_engine, loaded_position) = persistence.load();
+        let (loaded_settings, loaded_engine, loaded_position, loaded_updater) = persistence.load();
         assert_eq!(loaded_settings, settings);
         assert_eq!(loaded_engine.status(), TimerStatus::Paused);
         assert_eq!(loaded_engine.remaining_secs(SystemTime::now()), 100);
         assert_eq!(loaded_position, Some(position));
+        assert_eq!(loaded_updater, updater);
 
         let _ = fs::remove_dir_all(dir);
     }
@@ -204,7 +259,48 @@ mod tests {
         assert!(json.contains("soundEnabled"));
         assert!(json.contains("iconOnly"));
         assert!(json.contains("completionSound"));
+        assert!(json.contains("autoCheckForUpdates"));
         let parsed: Settings = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, Settings::default());
+    }
+
+    #[test]
+    fn legacy_state_migrates_missing_updater_fields() {
+        let json = r#"{
+            "settings": {
+                "hideWindowOnStart": true,
+                "pauseOnSleep": true,
+                "startAtLogin": false,
+                "soundEnabled": true,
+                "iconOnly": false,
+                "completionSound": "Glass"
+            },
+            "timer": {
+                "status": "idle",
+                "durationSecs": 1500,
+                "remainingAtPause": 1500,
+                "deadlineUnix": null
+            }
+        }"#;
+        let state: PersistedState = serde_json::from_str(json).unwrap();
+        assert!(state.settings.auto_check_for_updates);
+        assert_eq!(state.updater, UpdaterMeta::default());
+    }
+
+    #[test]
+    fn updater_meta_roundtrip() {
+        let meta = UpdaterMeta {
+            last_auto_check_unix: Some(42),
+            pending_release: Some(PendingReleaseNotes {
+                version: "2.0.0".into(),
+                date: None,
+                notes: Some("hello".into()),
+            }),
+        };
+        let json = serde_json::to_string(&meta).unwrap();
+        assert!(json.contains("lastAutoCheckUnix"));
+        assert!(json.contains("pendingRelease"));
+        let parsed: UpdaterMeta = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, meta);
     }
 }

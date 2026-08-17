@@ -3,15 +3,23 @@ import { useEffect, useState } from 'react'
 import {
   SettingsGroup,
   SettingsGroupContent,
+  SettingsGroupDescription,
   SettingsGroupItem,
   SettingsGroupItemControl,
   SettingsGroupItemLabel,
   SettingsGroupTitle,
 } from '@/components/settings-group'
+import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { WindowTitleBar } from '@/components/window-title-bar'
-import { api, type Settings } from '@/lib/tauri'
+import { formatUpdateStatus } from '@/features/updates/format-update-status'
+import {
+  api,
+  onUpdateStatus,
+  type Settings,
+  type UpdateStatus,
+} from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
 
 export function SettingsView() {
@@ -20,11 +28,25 @@ export function SettingsView() {
   const [sounds, setSounds] = useState<string[]>([])
   const [appName, setAppName] = useState('Focus Timer')
   const [appVersion, setAppVersion] = useState('')
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    kind: 'idle',
+  })
 
   useEffect(() => {
     void api.getSystemSounds().then(setSounds)
     void api.getAppName().then(setAppName)
     void api.getAppVersion().then(setAppVersion)
+    void api.getUpdateStatus().then(setUpdateStatus)
+  }, [])
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    void onUpdateStatus(setUpdateStatus).then((fn) => {
+      unlisten = fn
+    })
+    return () => {
+      unlisten?.()
+    }
   }, [])
 
   useEffect(() => {
@@ -54,6 +76,12 @@ export function SettingsView() {
     if (!current) return
     void saveSettings({ ...current, [key]: value })
   }
+
+  const checking =
+    updateStatus.kind === 'checking' ||
+    updateStatus.kind === 'downloading' ||
+    updateStatus.kind === 'installing'
+  const statusText = formatUpdateStatus(updateStatus)
 
   return (
     <div className="flex h-full flex-col">
@@ -167,12 +195,58 @@ export function SettingsView() {
           </SettingsGroupContent>
         </SettingsGroup>
 
+        <SettingsGroup>
+          <SettingsGroupTitle>Updates</SettingsGroupTitle>
+          <SettingsGroupContent>
+            <SettingsGroupItem>
+              <SettingsGroupItemLabel htmlFor="auto-check-updates">
+                Automatically check for updates
+              </SettingsGroupItemLabel>
+              <SettingsGroupItemControl>
+                <Switch
+                  id="auto-check-updates"
+                  checked={settings.autoCheckForUpdates}
+                  onCheckedChange={(value) =>
+                    update('autoCheckForUpdates', value)
+                  }
+                  aria-label="Automatically check for updates"
+                />
+              </SettingsGroupItemControl>
+            </SettingsGroupItem>
+            <SettingsGroupItem>
+              <SettingsGroupItemLabel htmlFor="check-now">
+                Check for updates
+              </SettingsGroupItemLabel>
+              <SettingsGroupItemControl className="gap-2">
+                <Button
+                  id="check-now"
+                  variant="secondary"
+                  disabled={checking}
+                  onClick={() => {
+                    void api
+                      .checkForUpdates()
+                      .then(setUpdateStatus)
+                      .catch(() => {
+                        // Status events already cover failures.
+                      })
+                  }}
+                >
+                  Check now
+                </Button>
+              </SettingsGroupItemControl>
+            </SettingsGroupItem>
+          </SettingsGroupContent>
+          {statusText ? (
+            <SettingsGroupDescription>{statusText}</SettingsGroupDescription>
+          ) : null}
+        </SettingsGroup>
+
         <section className="mt-auto flex flex-col items-center gap-2 pt-4 pb-2 text-center">
           <p className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
             {appName}
           </p>
           <div className="flex gap-2">
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-neutral-400 dark:text-neutral-500">
               {appVersion ? `Version ${appVersion}` : '\u00a0'}
             </p>
             <p className="text-xs text-neutral-400 dark:text-neutral-500">

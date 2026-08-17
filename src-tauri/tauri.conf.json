@@ -31,7 +31,23 @@
         "label": "settings",
         "title": "Settings",
         "width": 500,
-        "height": 420,
+        "height": 520,
+        "resizable": false,
+        "fullscreen": false,
+        "visible": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "minimizable": false,
+        "maximizable": false,
+        "skipTaskbar": true,
+        "center": true
+      },
+      {
+        "label": "release-notes",
+        "title": "What’s New",
+        "width": 420,
+        "height": 360,
         "resizable": false,
         "fullscreen": false,
         "visible": false,
@@ -51,6 +67,7 @@
   "bundle": {
     "active": true,
     "targets": "dmg",
+    "createUpdaterArtifacts": true,
     "macOS": {
       "minimumSystemVersion": "26.0"
     },
@@ -61,5 +78,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIzOUNENDQ2RjI3OEQ5MTIKUldRUzJYanlSdFNjczM0TXlnazEydWpwRXpQM3lmd0FnbmdkUEdnZ29ESDBTMG0zbFhFV2lUU2QK",
+      "endpoints": [
+        "https://github.com/rbika/focus-timer/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

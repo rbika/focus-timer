@@ -1,8 +1,10 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-use crate::persistence::{Persistence, Settings, WindowPosition};
+use crate::persistence::{Persistence, Settings, UpdaterMeta, WindowPosition};
 use crate::timer::{TimerEngine, TimerSnapshot};
+use crate::updater::UpdateStatus;
 
 pub struct AppState {
     pub engine: Mutex<TimerEngine>,
@@ -11,6 +13,9 @@ pub struct AppState {
     pub main_window_position: Mutex<Option<WindowPosition>>,
     pub last_tray_title: Mutex<String>,
     pub ticks_since_persist: Mutex<u32>,
+    pub updater_meta: Mutex<UpdaterMeta>,
+    pub update_status: Mutex<UpdateStatus>,
+    pub update_in_flight: AtomicBool,
 }
 
 impl AppState {
@@ -19,6 +24,7 @@ impl AppState {
         settings: Settings,
         engine: TimerEngine,
         main_window_position: Option<WindowPosition>,
+        updater_meta: UpdaterMeta,
     ) -> Self {
         let formatted = TimerSnapshot::from_engine(&engine, SystemTime::now()).formatted;
         let title = if settings.icon_only {
@@ -33,6 +39,9 @@ impl AppState {
             main_window_position: Mutex::new(main_window_position),
             last_tray_title: Mutex::new(title),
             ticks_since_persist: Mutex::new(0),
+            updater_meta: Mutex::new(updater_meta),
+            update_status: Mutex::new(UpdateStatus::Idle),
+            update_in_flight: AtomicBool::new(false),
         }
     }
 
@@ -48,7 +57,8 @@ impl AppState {
             .main_window_position
             .lock()
             .expect("main window position lock");
+        let updater = self.updater_meta.lock().expect("updater meta lock");
         self.persistence
-            .save(&settings, &engine, main_window_position)
+            .save(&settings, &engine, main_window_position, &updater)
     }
 }
