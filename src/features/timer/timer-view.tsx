@@ -36,6 +36,11 @@ export function TimerView() {
         void api.quitApp()
         return
       }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        void api.hideTimerWindow()
+        return
+      }
       if (event.code === 'Space') {
         const target = event.target as HTMLElement | null
         const tag = target?.tagName
