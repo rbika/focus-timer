@@ -69,4 +69,5 @@ jobs:
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
+          releaseAssetNamePattern: 'Focus Timer [version] [arch][ext]'
           args: --target aarch64-apple-darwin

@@ -31,9 +31,7 @@ export function formatUpdateStatus(status: {
         ? `Version ${status.version} is installed. Restart when ready.`
         : 'Update installed. Restart when ready.'
     case 'error':
-      return status.message
-        ? `Update check failed: ${status.message}`
-        : 'Update check failed.'
+      return 'Update check failed. Please try again later.'
     case 'cancelled':
       return 'Update cancelled.'
     default:
