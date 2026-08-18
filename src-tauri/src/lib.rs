@@ -76,7 +76,6 @@ pub fn run() {
             sync_autostart(app.handle());
             tray::create_tray(app.handle())?;
             tray::position_main_window(app.handle());
-            wire_window_events(app.handle());
             start_tick_loop(app.handle().clone());
             updater::start_background_checks(app.handle().clone());
             updater::show_release_notes_if_needed(app.handle());
@@ -108,17 +107,6 @@ fn sync_autostart(app: &tauri::AppHandle) {
         let _ = autostart.enable();
     } else {
         let _ = autostart.disable();
-    }
-}
-
-fn wire_window_events(app: &tauri::AppHandle) {
-    if let Some(main) = app.get_webview_window("main") {
-        let app_handle = app.clone();
-        main.on_window_event(move |event| {
-            if let tauri::WindowEvent::Focused(false) = event {
-                tray::hide_main_window_on_unfocus(&app_handle);
-            }
-        });
     }
 }
 

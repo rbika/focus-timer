@@ -17,20 +17,7 @@ const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
 
 const CLICK_GUARD: Duration = Duration::from_millis(300);
 
-struct TrayClickGuard {
-    last_unfocus_hide: Option<Instant>,
-    ignore_unfocus_until: Option<Instant>,
-    last_toggle: Option<Instant>,
-}
-
-/// Clicking the tray unfocuses the window first (dismiss) and showing it from
-/// the status item often delivers a leftover Focused(false). Both need a guard
-/// so the same click does not show then immediately hide.
-static TRAY_CLICK_GUARD: Mutex<TrayClickGuard> = Mutex::new(TrayClickGuard {
-    last_unfocus_hide: None,
-    ignore_unfocus_until: None,
-    last_toggle: None,
-});
+static LAST_TRAY_TOGGLE: Mutex<Option<Instant>> = Mutex::new(None);
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
@@ -75,7 +62,7 @@ fn toggle_main_window_from_tray(app: &AppHandle) {
         return;
     };
     let visible = window.is_visible().unwrap_or(false);
-    if visible || was_just_hidden_by_unfocus() {
+    if visible {
         hide_main_window(app);
     } else {
         let _ = crate::commands::show_timer_window(app.clone());
@@ -83,47 +70,14 @@ fn toggle_main_window_from_tray(app: &AppHandle) {
 }
 
 fn is_duplicate_toggle() -> bool {
-    let Ok(mut guard) = TRAY_CLICK_GUARD.lock() else {
+    let Ok(mut last_toggle) = LAST_TRAY_TOGGLE.lock() else {
         return false;
     };
-    if guard
-        .last_toggle
-        .is_some_and(|at| at.elapsed() < CLICK_GUARD)
-    {
+    if last_toggle.is_some_and(|at| at.elapsed() < CLICK_GUARD) {
         return true;
     }
-    guard.last_toggle = Some(Instant::now());
+    *last_toggle = Some(Instant::now());
     false
-}
-
-fn was_just_hidden_by_unfocus() -> bool {
-    TRAY_CLICK_GUARD
-        .lock()
-        .ok()
-        .and_then(|guard| guard.last_unfocus_hide)
-        .is_some_and(|at| at.elapsed() < CLICK_GUARD)
-}
-
-pub fn ignore_unfocus_briefly() {
-    if let Ok(mut guard) = TRAY_CLICK_GUARD.lock() {
-        guard.ignore_unfocus_until = Some(Instant::now() + CLICK_GUARD);
-    }
-}
-
-pub fn hide_main_window_on_unfocus(app: &AppHandle) {
-    let ignore = TRAY_CLICK_GUARD
-        .lock()
-        .ok()
-        .and_then(|guard| guard.ignore_unfocus_until)
-        .is_some_and(|until| Instant::now() < until);
-    if ignore {
-        return;
-    }
-
-    if let Ok(mut guard) = TRAY_CLICK_GUARD.lock() {
-        guard.last_unfocus_hide = Some(Instant::now());
-    }
-    hide_main_window(app);
 }
 
 pub(crate) fn tray_title(title: &str) -> &str {
