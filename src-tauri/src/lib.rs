@@ -8,7 +8,7 @@ mod tray;
 mod updater;
 
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
@@ -118,7 +118,12 @@ fn start_tick_loop(app: tauri::AppHandle) {
         };
 
         loop {
-            std::thread::sleep(Duration::from_secs(1));
+            let sleep_for = {
+                let state = app.state::<AppState>();
+                let engine = state.engine.lock().expect("engine");
+                engine.time_until_display_tick(SystemTime::now())
+            };
+            std::thread::sleep(sleep_for);
 
             let state = app.state::<AppState>();
 

@@ -51,11 +51,32 @@ impl TimerEngine {
     pub fn remaining_secs(&self, now: SystemTime) -> u64 {
         match self.status {
             TimerStatus::Running => match self.deadline {
-                Some(deadline) => deadline.duration_since(now).unwrap_or_default().as_secs(),
+                Some(deadline) => ceil_secs(deadline.duration_since(now).unwrap_or_default()),
                 None => 0,
             },
             TimerStatus::Idle | TimerStatus::Paused => self.remaining_at_pause,
             TimerStatus::Completed => 0,
+        }
+    }
+
+    /// Sleep this long before the displayed remaining second should change.
+    pub fn time_until_display_tick(&self, now: SystemTime) -> Duration {
+        match self.status {
+            TimerStatus::Running => match self.deadline {
+                Some(deadline) => {
+                    let remaining = deadline.duration_since(now).unwrap_or_default();
+                    let nanos = remaining.subsec_nanos();
+                    if remaining.is_zero() || nanos == 0 {
+                        Duration::from_secs(1)
+                    } else {
+                        Duration::new(0, nanos)
+                    }
+                }
+                None => Duration::from_secs(1),
+            },
+            TimerStatus::Idle | TimerStatus::Paused | TimerStatus::Completed => {
+                Duration::from_secs(1)
+            }
         }
     }
 
@@ -164,6 +185,16 @@ impl TimerEngine {
     }
 }
 
+/// Kitchen-timer rounding: keep showing N until that second has fully elapsed.
+fn ceil_secs(duration: Duration) -> u64 {
+    let secs = duration.as_secs();
+    if duration.subsec_nanos() == 0 {
+        secs
+    } else {
+        secs.saturating_add(1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,6 +224,35 @@ mod tests {
             engine.remaining_secs(resume_at + Duration::from_secs(10)),
             50
         );
+    }
+
+    #[test]
+    fn remaining_holds_full_second_until_it_elapses() {
+        let mut engine = TimerEngine::new(60);
+        let now = t0();
+        engine.start(now);
+        assert_eq!(engine.remaining_secs(now), 60);
+        assert_eq!(engine.remaining_secs(now + Duration::from_millis(1)), 60);
+        assert_eq!(engine.remaining_secs(now + Duration::from_millis(999)), 60);
+        assert_eq!(engine.remaining_secs(now + Duration::from_secs(1)), 59);
+        assert_eq!(
+            engine.remaining_secs(now + Duration::from_millis(1_001)),
+            59
+        );
+    }
+
+    #[test]
+    fn time_until_display_tick_is_the_fractional_remainder() {
+        let mut engine = TimerEngine::new(60);
+        let now = t0();
+        engine.start(now);
+        assert_eq!(engine.time_until_display_tick(now), Duration::from_secs(1));
+        assert_eq!(
+            engine.time_until_display_tick(now + Duration::from_millis(250)),
+            Duration::from_millis(750)
+        );
+        engine.pause(now);
+        assert_eq!(engine.time_until_display_tick(now), Duration::from_secs(1));
     }
 
     #[test]

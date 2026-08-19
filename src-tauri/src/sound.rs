@@ -1,8 +1,20 @@
 /// Built-in macOS system sound names (`/System/Library/Sounds/*.aiff`),
 /// as listed in System Settings > Sound > Sound Effects.
 pub const SYSTEM_SOUNDS: &[&str] = &[
-    "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass", "Hero", "Morse", "Ping", "Pop", "Purr",
-    "Sosumi", "Submarine", "Tink",
+    "Basso",
+    "Blow",
+    "Bottle",
+    "Frog",
+    "Funk",
+    "Glass",
+    "Hero",
+    "Morse",
+    "Ping",
+    "Pop",
+    "Purr",
+    "Sosumi",
+    "Submarine",
+    "Tink",
 ];
 
 /// Play a native macOS system sound by name via `NSSound`.

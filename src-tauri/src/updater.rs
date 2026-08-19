@@ -194,13 +194,7 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
                 if content_len.is_some() {
                     total = content_len;
                 }
-                set_status(
-                    &app,
-                    UpdateStatus::Downloading {
-                        downloaded,
-                        total,
-                    },
-                );
+                set_status(&app, UpdateStatus::Downloading { downloaded, total });
             },
             || {
                 set_status(&app, UpdateStatus::Installing);
@@ -290,11 +284,7 @@ pub fn show_release_notes_if_needed(app: &AppHandle) {
     }
 }
 
-fn finish_error(
-    app: &AppHandle,
-    message: String,
-    manual: bool,
-) -> Result<UpdateStatus, String> {
+fn finish_error(app: &AppHandle, message: String, manual: bool) -> Result<UpdateStatus, String> {
     let status = UpdateStatus::Error {
         message: message.clone(),
         manual,

@@ -164,11 +164,7 @@ fn set_status_button_opacity(
 ) {
     use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext};
 
-    let opacity = if dimmed {
-        TRAY_INACTIVE_OPACITY
-    } else {
-        1.0
-    };
+    let opacity = if dimmed { TRAY_INACTIVE_OPACITY } else { 1.0 };
     if animate {
         NSAnimationContext::beginGrouping();
         NSAnimationContext::currentContext().setDuration(TRAY_OPACITY_DURATION);
@@ -198,7 +194,13 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         TimerStatus::Idle | TimerStatus::Completed => duration_secs > 0,
         TimerStatus::Running | TimerStatus::Paused => true,
     };
-    let pause = MenuItem::with_id(app, "toggle_pause", pause_label, start_enabled, None::<&str>)?;
+    let pause = MenuItem::with_id(
+        app,
+        "toggle_pause",
+        pause_label,
+        start_enabled,
+        None::<&str>,
+    )?;
     let reset = MenuItem::with_id(app, "reset", "Cancel", true, None::<&str>)?;
 
     let icon_only = state.settings.lock().expect("settings lock").icon_only;
