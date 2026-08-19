@@ -118,7 +118,7 @@ impl Persistence {
             );
         };
 
-        let duration = state.timer.duration_secs.max(1);
+        let duration = state.timer.duration_secs;
         let mut engine = TimerEngine::new(duration);
         let now = SystemTime::now();
 

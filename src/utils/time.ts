@@ -6,16 +6,16 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
-/** Formats seconds as an `HH:MM:SS` mask, clamped to 99:59:59 (min 1s). */
+/** Formats seconds as an `HH:MM:SS` mask, clamped to 99:59:59. */
 function secsToMask(total: number): string {
-  const capped = Math.min(MAX_DURATION_SECS, Math.max(1, Math.floor(total)))
+  const capped = Math.min(MAX_DURATION_SECS, Math.max(0, Math.floor(total)))
   const hours = Math.floor(capped / 3600)
   const minutes = Math.floor((capped % 3600) / 60)
   const seconds = capped % 60
   return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
 }
 
-/** Parses an `HH:MM:SS` mask into seconds (min 1, max 99:59:59). Overflow carries. */
+/** Parses an `HH:MM:SS` mask into seconds (min 0, max 99:59:59). Overflow carries. */
 function maskToSecs(mask: string): number {
   const digits = mask
     .replace(/\D/g, '')
@@ -26,7 +26,7 @@ function maskToSecs(mask: string): number {
   const seconds = Number(digits.slice(4))
   return Math.min(
     MAX_DURATION_SECS,
-    Math.max(1, hours * 3600 + minutes * 60 + seconds),
+    Math.max(0, hours * 3600 + minutes * 60 + seconds),
   )
 }
 

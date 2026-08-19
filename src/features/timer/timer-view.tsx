@@ -87,7 +87,7 @@ export function TimerView() {
     intendedSecsRef.current = secs
     await runExclusive(async () => {
       await syncDuration(secs, gen)
-      await togglePause()
+      if (secs > 0) await togglePause()
     })
   }, [mask, runExclusive, syncDuration, togglePause])
 
@@ -173,6 +173,7 @@ export function TimerView() {
   const isRunning = snapshot.status === 'running'
   const isPaused = snapshot.status === 'paused'
   const isActive = isRunning || isPaused
+  const canStart = maskToSecs(mask) > 0
   const endsAt = isRunning
     ? new Date(Date.now() + snapshot.remainingSecs * 1000).toLocaleTimeString(
         undefined,
@@ -252,6 +253,7 @@ export function TimerView() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => void handleStart()}
+                disabled={!canStart}
                 aria-label="Start"
                 className="w-24 gap-1.5"
               >

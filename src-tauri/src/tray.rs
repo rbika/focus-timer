@@ -122,14 +122,21 @@ fn set_monospaced_timer_font(_: &tauri::tray::TrayIcon) {}
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let state = app.state::<AppState>();
-    let status = state.engine.lock().expect("engine lock").status();
+    let (status, duration_secs) = {
+        let engine = state.engine.lock().expect("engine lock");
+        (engine.status(), engine.duration_secs())
+    };
 
     let pause_label = match status {
         TimerStatus::Running => "Pause",
         TimerStatus::Paused => "Resume",
         TimerStatus::Idle | TimerStatus::Completed => "Start",
     };
-    let pause = MenuItem::with_id(app, "toggle_pause", pause_label, true, None::<&str>)?;
+    let start_enabled = match status {
+        TimerStatus::Idle | TimerStatus::Completed => duration_secs > 0,
+        TimerStatus::Running | TimerStatus::Paused => true,
+    };
+    let pause = MenuItem::with_id(app, "toggle_pause", pause_label, start_enabled, None::<&str>)?;
     let reset = MenuItem::with_id(app, "reset", "Cancel", true, None::<&str>)?;
 
     let icon_only = state.settings.lock().expect("settings lock").icon_only;

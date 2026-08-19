@@ -28,7 +28,6 @@ impl Default for TimerEngine {
 
 impl TimerEngine {
     pub fn new(duration_secs: u64) -> Self {
-        let duration_secs = duration_secs.max(1);
         Self {
             duration_secs,
             remaining_at_pause: duration_secs,
@@ -61,7 +60,6 @@ impl TimerEngine {
     }
 
     pub fn set_duration(&mut self, duration_secs: u64) {
-        let duration_secs = duration_secs.max(1);
         self.duration_secs = duration_secs;
         if matches!(self.status, TimerStatus::Idle | TimerStatus::Completed) {
             self.remaining_at_pause = duration_secs;
@@ -76,6 +74,9 @@ impl TimerEngine {
         }
         if self.remaining_at_pause == 0 {
             self.remaining_at_pause = self.duration_secs;
+        }
+        if self.remaining_at_pause == 0 {
+            return;
         }
         self.deadline = Some(now + Duration::from_secs(self.remaining_at_pause));
         self.status = TimerStatus::Running;
@@ -240,6 +241,16 @@ mod tests {
         engine.set_duration(120);
         assert_eq!(engine.duration_secs(), 120);
         assert_eq!(engine.remaining_secs(t0()), 120);
+    }
+
+    #[test]
+    fn set_duration_allows_zero() {
+        let mut engine = TimerEngine::new(60);
+        engine.set_duration(0);
+        assert_eq!(engine.duration_secs(), 0);
+        assert_eq!(engine.remaining_secs(t0()), 0);
+        engine.start(t0());
+        assert_eq!(engine.status(), TimerStatus::Idle);
     }
 
     #[test]

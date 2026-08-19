@@ -61,22 +61,32 @@ pub fn update_settings(app: AppHandle, settings: Settings) -> Result<Settings, S
 #[tauri::command]
 pub fn set_duration(app: AppHandle, duration_secs: u64) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
-    let duration_secs = duration_secs.max(1);
 
-    {
+    let (unchanged, prev_duration) = {
         let mut engine = state.engine.lock().expect("engine lock");
         if !matches!(engine.status(), TimerStatus::Idle | TimerStatus::Completed) {
             return Err("Timer must be idle to change duration".into());
         }
-        if engine.duration_secs() == duration_secs {
-            return Ok(state.snapshot());
+        let prev = engine.duration_secs();
+        if prev == duration_secs {
+            (true, prev)
+        } else {
+            engine.set_duration(duration_secs);
+            (false, prev)
         }
-        engine.set_duration(duration_secs);
+    };
+
+    if unchanged {
+        return Ok(state.snapshot());
     }
 
     state.persist()?;
     let snapshot = state.snapshot();
     crate::tray::update_tray_title(&app, &snapshot.formatted);
+    // Start is disabled in the tray at 0s, so rebuild when that flips.
+    if (prev_duration == 0) != (duration_secs == 0) {
+        crate::tray::refresh_tray_menu(&app);
+    }
     Ok(snapshot)
 }
 
