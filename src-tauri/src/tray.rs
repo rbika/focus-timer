@@ -14,10 +14,13 @@ use crate::timer::{TimerSnapshot, TimerStatus};
 
 const TRAY_ID: &str = "main";
 const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
+const TRAY_INACTIVE_OPACITY: f64 = 0.4;
+const TRAY_OPACITY_DURATION: f64 = 0.2;
 
 const CLICK_GUARD: Duration = Duration::from_millis(300);
 
 static LAST_TRAY_TOGGLE: Mutex<Option<Instant>> = Mutex::new(None);
+static LAST_TRAY_DIMMED: Mutex<Option<bool>> = Mutex::new(None);
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
@@ -48,7 +51,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    set_monospaced_timer_font(&tray);
+    configure_status_button(&tray, tray_is_dimmed(app));
 
     Ok(())
 }
@@ -97,9 +100,18 @@ fn display_title(app: &AppHandle) -> String {
     }
 }
 
+fn tray_is_dimmed(app: &AppHandle) -> bool {
+    app.state::<AppState>()
+        .engine
+        .lock()
+        .expect("engine lock")
+        .status()
+        != TimerStatus::Running
+}
+
 #[cfg(target_os = "macos")]
-fn set_monospaced_timer_font(tray: &tauri::tray::TrayIcon) {
-    let _ = tray.with_inner_tray_icon(|inner| {
+fn configure_status_button(tray: &tauri::tray::TrayIcon, dimmed: bool) {
+    let _ = tray.with_inner_tray_icon(move |inner| {
         let Some(status_item) = inner.ns_status_item() else {
             return;
         };
@@ -113,12 +125,62 @@ fn set_monospaced_timer_font(tray: &tauri::tray::TrayIcon) {
                 0.0,
             );
             button.setFont(Some(&font));
+            set_status_button_opacity(&button, dimmed, false);
         }
     });
+    *LAST_TRAY_DIMMED.lock().expect("tray dimmed lock") = Some(dimmed);
+}
+
+fn update_status_item_opacity(tray: &tauri::tray::TrayIcon, dimmed: bool) {
+    {
+        let mut last = LAST_TRAY_DIMMED.lock().expect("tray dimmed lock");
+        if *last == Some(dimmed) {
+            return;
+        }
+        *last = Some(dimmed);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = tray.with_inner_tray_icon(move |inner| {
+            let Some(status_item) = inner.ns_status_item() else {
+                return;
+            };
+            let Some(mtm) = objc2::MainThreadMarker::new() else {
+                return;
+            };
+            if let Some(button) = status_item.button(mtm) {
+                set_status_button_opacity(&button, dimmed, true);
+            }
+        });
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_status_button_opacity(
+    button: &objc2_app_kit::NSStatusBarButton,
+    dimmed: bool,
+    animate: bool,
+) {
+    use objc2_app_kit::{NSAnimatablePropertyContainer, NSAnimationContext};
+
+    let opacity = if dimmed {
+        TRAY_INACTIVE_OPACITY
+    } else {
+        1.0
+    };
+    if animate {
+        NSAnimationContext::beginGrouping();
+        NSAnimationContext::currentContext().setDuration(TRAY_OPACITY_DURATION);
+        button.animator().setAlphaValue(opacity);
+        NSAnimationContext::endGrouping();
+    } else {
+        button.setAlphaValue(opacity);
+    }
 }
 
 #[cfg(not(target_os = "macos"))]
-fn set_monospaced_timer_font(_: &tauri::tray::TrayIcon) {}
+fn configure_status_button(_: &tauri::tray::TrayIcon, _: bool) {}
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let state = app.state::<AppState>();
@@ -167,9 +229,11 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 }
 
 pub fn refresh_tray_menu(app: &AppHandle) {
+    let dimmed = tray_is_dimmed(app);
     if let Ok(menu) = build_menu(app) {
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
             let _ = tray.set_menu(Some(menu));
+            update_status_item_opacity(&tray, dimmed);
         }
     }
 }
@@ -188,6 +252,7 @@ pub fn update_tray_title(app: &AppHandle, title: &str) {
         return;
     }
     *last = display.clone();
+    drop(last);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_title(Some(display));
     }
