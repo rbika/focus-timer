@@ -187,7 +187,7 @@ export function TimerView() {
         title="Focus Timer"
         onOpenSettings={() => void api.openSettings()}
       />
-      <main className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-3">
+      <main className="flex flex-1 flex-col items-center justify-between gap-5 px-4 py-4">
         {isActive ? (
           <>
             <div className="flex flex-col items-center gap-1">
