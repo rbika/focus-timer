@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { formatUpdateStatus } from '@/features/updates/format-update-status'
+import { UpToDateDialog } from '@/features/updates/up-to-date-dialog'
 import {
   api,
   onUpdateStatus,
@@ -31,6 +32,7 @@ export function SettingsView() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     kind: 'idle',
   })
+  const [upToDateDialogOpen, setUpToDateDialogOpen] = useState(false)
 
   useEffect(() => {
     void api.getSystemSounds().then(setSounds)
@@ -48,6 +50,12 @@ export function SettingsView() {
       unlisten?.()
     }
   }, [])
+
+  useEffect(() => {
+    if (updateStatus.kind === 'upToDate' && updateStatus.manual) {
+      setUpToDateDialogOpen(true)
+    }
+  }, [updateStatus])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -81,10 +89,15 @@ export function SettingsView() {
     updateStatus.kind === 'checking' ||
     updateStatus.kind === 'downloading' ||
     updateStatus.kind === 'installing'
-  const statusText = formatUpdateStatus(updateStatus)
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
+      <UpToDateDialog
+        open={upToDateDialogOpen}
+        appName={appName}
+        version={appVersion}
+        onClose={() => setUpToDateDialogOpen(false)}
+      />
       <WindowTitleBar title="Settings" />
       <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-8">
         <SettingsGroup>
@@ -236,9 +249,6 @@ export function SettingsView() {
               </SettingsGroupItemControl>
             </SettingsGroupItem>
           </SettingsGroupContent>
-          {statusText ? (
-            <SettingsGroupDescription>{statusText}</SettingsGroupDescription>
-          ) : null}
         </SettingsGroup>
 
         <section className="mt-auto flex flex-col items-center gap-2 pt-4 pb-2 text-center">

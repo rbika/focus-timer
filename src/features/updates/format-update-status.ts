@@ -10,7 +10,7 @@ export function formatUpdateStatus(status: {
     case 'checking':
       return 'Checking for updates…'
     case 'upToDate':
-      return "You're up to date."
+      return status.manual ? '' : "You're up to date."
     case 'available':
       return status.version
         ? `Update ${status.version} is available.`
@@ -32,8 +32,6 @@ export function formatUpdateStatus(status: {
         : 'Update installed. Restart when ready.'
     case 'error':
       return 'Update check failed. Please try again later.'
-    case 'cancelled':
-      return 'Update cancelled.'
     default:
       return ''
   }

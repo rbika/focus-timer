@@ -25,7 +25,6 @@ objc2-app-kit = { version = "0.3", features = [
     "NSFont",
     "NSFontDescriptor",
     "NSSound",
-    "NSView",
 ] }
 objc2-foundation = { version = "0.3", features = ["NSString"] }
 tauri-plugin-dialog = "2"

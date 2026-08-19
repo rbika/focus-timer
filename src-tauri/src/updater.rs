@@ -123,9 +123,6 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
     let Some(update) = update else {
         let status = UpdateStatus::UpToDate { manual };
         set_status(&app, status.clone());
-        if manual {
-            show_up_to_date_dialog(&app);
-        }
         return Ok(status);
     };
 
@@ -324,16 +321,6 @@ fn ask_dialog(app: &AppHandle, title: &str, message: &str, ok: &str, cancel: &st
             cancel.to_string(),
         ))
         .blocking_show()
-}
-
-fn show_up_to_date_dialog(app: &AppHandle) {
-    let version = app.package_info().version.to_string();
-    app.dialog()
-        .message(format!("Focus Timer {version} is up to date."))
-        .title("No Updates")
-        .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::Ok)
-        .blocking_show();
 }
 
 fn notes_preview(notes: Option<&str>) -> String {
