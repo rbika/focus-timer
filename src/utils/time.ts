@@ -1,14 +1,42 @@
-/** Splits a duration in seconds into hours, minutes, and seconds. */
-function secsToParts(total: number) {
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  return { hours, minutes, seconds }
+const MASK_DIGITS = 6
+const MAX_HOURS = 99
+const MAX_DURATION_SECS = MAX_HOURS * 3600 + 59 * 60 + 59
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
 }
 
-/** Combines hours, minutes, and seconds into a duration in seconds (min 1). */
-function partsToSecs(hours: number, minutes: number, seconds: number) {
-  return Math.max(1, hours * 3600 + minutes * 60 + seconds)
+/** Formats seconds as an `HH:MM:SS` mask, clamped to 99:59:59 (min 1s). */
+function secsToMask(total: number): string {
+  const capped = Math.min(MAX_DURATION_SECS, Math.max(1, Math.floor(total)))
+  const hours = Math.floor(capped / 3600)
+  const minutes = Math.floor((capped % 3600) / 60)
+  const seconds = capped % 60
+  return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
 }
 
-export { secsToParts, partsToSecs }
+/** Parses an `HH:MM:SS` mask into seconds (min 1, max 99:59:59). Overflow carries. */
+function maskToSecs(mask: string): number {
+  const digits = mask
+    .replace(/\D/g, '')
+    .slice(-MASK_DIGITS)
+    .padStart(MASK_DIGITS, '0')
+  const hours = Number(digits.slice(0, 2))
+  const minutes = Number(digits.slice(2, 4))
+  const seconds = Number(digits.slice(4))
+  return Math.min(
+    MAX_DURATION_SECS,
+    Math.max(1, hours * 3600 + minutes * 60 + seconds),
+  )
+}
+
+/** Keeps the last 6 digits typed and formats them as `HH:MM:SS`. */
+function digitsToMask(raw: string): string {
+  const digits = raw
+    .replace(/\D/g, '')
+    .slice(-MASK_DIGITS)
+    .padStart(MASK_DIGITS, '0')
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`
+}
+
+export { secsToMask, maskToSecs, digitsToMask }

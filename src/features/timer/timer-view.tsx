@@ -4,9 +4,10 @@ import { Bell, Pause, Play, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
+import { DurationInput } from '@/features/timer/duration-input'
 import { api } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
-import { partsToSecs, secsToParts } from '@/utils/time'
+import { maskToSecs, secsToMask } from '@/utils/time'
 
 export function TimerView() {
   const snapshot = useTimerStore((s) => s.snapshot)
@@ -15,14 +16,106 @@ export function TimerView() {
   const reset = useTimerStore((s) => s.actions.reset)
   const setDuration = useTimerStore((s) => s.actions.setDuration)
 
-  const [hours, setHours] = useState(0)
-  const [minutes, setMinutes] = useState(25)
-  const [seconds, setSeconds] = useState(0)
+  const [mask, setMask] = useState('00:25:00')
+  const editingRef = useRef(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const genRef = useRef(0)
+  const intendedSecsRef = useRef<number | null>(null)
+  const queueRef = useRef(Promise.resolve())
+
+  const runExclusive = useCallback((task: () => Promise<void>) => {
+    const run = queueRef.current.then(task, task)
+    queueRef.current = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
+  }, [])
+
+  const syncDuration = useCallback(
+    async (secs: number, gen: number) => {
+      if (gen !== genRef.current) return
+      const current = useTimerStore.getState().snapshot
+      if (!current) return
+      if (current.status !== 'idle' && current.status !== 'completed') return
+      if (current.durationSecs === secs) return
+      try {
+        await setDuration(secs)
+      } catch {
+        if (gen === genRef.current) intendedSecsRef.current = null
+      }
+    },
+    [setDuration],
+  )
+
+  const commitDuration = useCallback(
+    (nextMask: string) => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+      const gen = ++genRef.current
+      const secs = maskToSecs(nextMask)
+      intendedSecsRef.current = secs
+      return runExclusive(() => syncDuration(secs, gen))
+    },
+    [runExclusive, syncDuration],
+  )
+
+  const handleMaskChange = useCallback(
+    (next: string) => {
+      setMask(next)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      const gen = ++genRef.current
+      const secs = maskToSecs(next)
+      intendedSecsRef.current = secs
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null
+        void runExclusive(() => syncDuration(secs, gen))
+      }, 200)
+    },
+    [runExclusive, syncDuration],
+  )
 
   const handleStart = useCallback(async () => {
-    await setDuration(partsToSecs(hours, minutes, seconds))
-    await togglePause()
-  }, [setDuration, togglePause, hours, minutes, seconds])
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    const gen = ++genRef.current
+    const secs = maskToSecs(mask)
+    intendedSecsRef.current = secs
+    await runExclusive(async () => {
+      await syncDuration(secs, gen)
+      await togglePause()
+    })
+  }, [mask, runExclusive, syncDuration, togglePause])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  // Engine is the source of truth when we're not typing. Ignore snapshots
+  // that don't match the latest local intent (stale in-flight setDuration).
+  useEffect(() => {
+    const current = useTimerStore.getState().snapshot
+    if (!current) return
+    if (editingRef.current) return
+    if (current.status !== 'idle' && current.status !== 'completed') return
+    if (
+      intendedSecsRef.current !== null &&
+      current.durationSecs !== intendedSecsRef.current
+    ) {
+      return
+    }
+    intendedSecsRef.current = null
+    setMask((mask) => {
+      const next = secsToMask(current.durationSecs)
+      return mask === next ? mask : next
+    })
+  }, [snapshot?.status, snapshot?.durationSecs])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -68,41 +161,6 @@ export function TimerView() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [snapshot, togglePause, handleStart])
-
-  // Keep the duration inputs in sync with the engine's duration whenever
-  // there is no active session (i.e. right after start/cancel/completion).
-  useEffect(() => {
-    if (!snapshot) return
-    if (snapshot.status === 'idle' || snapshot.status === 'completed') {
-      const parts = secsToParts(snapshot.durationSecs)
-      setHours(parts.hours)
-      setMinutes(parts.minutes)
-      setSeconds(parts.seconds)
-    }
-  }, [snapshot?.status, snapshot?.durationSecs, snapshot])
-
-  // Push edits to the input fields down to the engine (debounced) so the
-  // tray title stays in sync while the user is typing, without duplicating
-  // timer/formatting logic on the frontend. Skipped while a session is
-  // active since the backend rejects duration changes then.
-  useEffect(() => {
-    if (!snapshot) return
-    if (snapshot.status !== 'idle' && snapshot.status !== 'completed') return
-    const totalSecs = partsToSecs(hours, minutes, seconds)
-    if (totalSecs === snapshot.durationSecs) return
-    const timeout = setTimeout(() => {
-      void setDuration(totalSecs).catch(() => {})
-    }, 150)
-    return () => clearTimeout(timeout)
-  }, [
-    hours,
-    minutes,
-    seconds,
-    snapshot?.status,
-    snapshot?.durationSecs,
-    setDuration,
-    snapshot,
-  ])
 
   if (!ready || !snapshot) {
     return (
@@ -176,32 +234,20 @@ export function TimerView() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-1.5">
-              <DurationField
-                label="Hours"
-                value={hours}
-                max={23}
-                onChange={setHours}
-              />
-              <span className="pb-4 text-lg font-light text-neutral-400">
-                :
-              </span>
-              <DurationField
-                label="Min"
-                value={minutes}
-                max={59}
-                onChange={setMinutes}
-              />
-              <span className="pb-4 text-lg font-light text-neutral-400">
-                :
-              </span>
-              <DurationField
-                label="Sec"
-                value={seconds}
-                max={59}
-                onChange={setSeconds}
-              />
-            </div>
+            <DurationInput
+              value={mask}
+              onChange={handleMaskChange}
+              onFocus={() => {
+                editingRef.current = true
+              }}
+              onBlur={() => {
+                editingRef.current = false
+                const normalized = secsToMask(maskToSecs(mask))
+                setMask(normalized)
+                void commitDuration(normalized)
+              }}
+              onCommit={() => void handleStart()}
+            />
 
             <div className="flex items-center gap-2">
               <Button
@@ -226,60 +272,5 @@ export function TimerView() {
         )}
       </main>
     </div>
-  )
-}
-
-function DurationField({
-  label,
-  value,
-  max,
-  onChange,
-}: {
-  label: string
-  value: number
-  max: number
-  onChange: (value: number) => void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const pinCaretToEnd = () => {
-    const el = inputRef.current
-    if (el) el.setSelectionRange(el.value.length, el.value.length)
-  }
-
-  // Controlled value re-renders can reset the caret; pin it back to the end
-  // so digits always append (odometer-style) instead of inserting mid-string.
-  useEffect(() => {
-    if (document.activeElement === inputRef.current) pinCaretToEnd()
-  }, [value])
-
-  return (
-    <label className="flex flex-col items-center gap-1 text-[10px] tracking-wide text-neutral-500 uppercase">
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={value.toString().padStart(2, '0')}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, '')
-          if (digits === '') {
-            onChange(0)
-            return
-          }
-          onChange(Math.min(max, Number(digits.slice(-2))))
-        }}
-        onFocus={pinCaretToEnd}
-        onClick={pinCaretToEnd}
-        onSelect={pinCaretToEnd}
-        onKeyDown={(e) => {
-          if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-            e.preventDefault()
-          }
-        }}
-        className="h-10 w-14 rounded-md border border-neutral-300 bg-white text-center text-lg text-neutral-900 tabular-nums dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
-      />
-      {label}
-    </label>
   )
 }

@@ -68,10 +68,16 @@ pub fn set_duration(app: AppHandle, duration_secs: u64) -> Result<TimerSnapshot,
         if !matches!(engine.status(), TimerStatus::Idle | TimerStatus::Completed) {
             return Err("Timer must be idle to change duration".into());
         }
+        if engine.duration_secs() == duration_secs {
+            return Ok(state.snapshot());
+        }
         engine.set_duration(duration_secs);
     }
 
-    after_control(&app)
+    state.persist()?;
+    let snapshot = state.snapshot();
+    crate::tray::update_tray_title(&app, &snapshot.formatted);
+    Ok(snapshot)
 }
 
 #[tauri::command]
