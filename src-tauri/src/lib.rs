@@ -93,8 +93,8 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Focused(false) if window.label() == "main" => {
                     let app = window.app_handle();
-                    if !tray::any_sibling_window_visible(&app) {
-                        tray::hide_main_window(&app);
+                    if !tray::any_sibling_window_visible(app) {
+                        tray::hide_main_window(app);
                     }
                 }
                 _ => {}
