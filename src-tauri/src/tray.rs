@@ -13,6 +13,7 @@ use crate::persistence::WindowPosition;
 use crate::timer::{TimerSnapshot, TimerStatus};
 
 const TRAY_ID: &str = "main";
+const SIBLING_WINDOW_LABELS: &[&str] = &["settings", "release-notes"];
 const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
 const TRAY_INACTIVE_OPACITY: f64 = 0.4;
 const TRAY_OPACITY_DURATION: f64 = 0.2;
@@ -20,6 +21,7 @@ const TRAY_OPACITY_DURATION: f64 = 0.2;
 const CLICK_GUARD: Duration = Duration::from_millis(300);
 
 static LAST_TRAY_TOGGLE: Mutex<Option<Instant>> = Mutex::new(None);
+static LAST_MAIN_WINDOW_HIDE: Mutex<Option<Instant>> = Mutex::new(None);
 static LAST_TRAY_DIMMED: Mutex<Option<bool>> = Mutex::new(None);
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -67,9 +69,16 @@ fn toggle_main_window_from_tray(app: &AppHandle) {
     let visible = window.is_visible().unwrap_or(false);
     if visible {
         hide_main_window(app);
-    } else {
+    } else if !is_recent_main_window_hide() {
         let _ = crate::commands::show_timer_window(app.clone());
     }
+}
+
+fn is_recent_main_window_hide() -> bool {
+    let Ok(last_hide) = LAST_MAIN_WINDOW_HIDE.lock() else {
+        return false;
+    };
+    last_hide.is_some_and(|at| at.elapsed() < CLICK_GUARD)
 }
 
 fn is_duplicate_toggle() -> bool {
@@ -346,9 +355,22 @@ pub fn save_main_window_position(app: &AppHandle) {
     }
 }
 
+pub fn any_sibling_window_visible(app: &AppHandle) -> bool {
+    SIBLING_WINDOW_LABELS.iter().any(|label| {
+        app.get_webview_window(label)
+            .and_then(|window| window.is_visible().ok())
+            .unwrap_or(false)
+    })
+}
+
 pub fn hide_main_window(app: &AppHandle) {
     save_main_window_position(app);
     if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            *LAST_MAIN_WINDOW_HIDE
+                .lock()
+                .expect("main window hide lock") = Some(Instant::now());
+        }
         let _ = window.hide();
     }
 }

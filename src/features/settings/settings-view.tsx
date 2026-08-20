@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import {
   SettingsGroup,
   SettingsGroupContent,
-  SettingsGroupDescription,
   SettingsGroupItem,
   SettingsGroupItemControl,
   SettingsGroupItemLabel,
@@ -13,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { WindowTitleBar } from '@/components/window-title-bar'
-import { formatUpdateStatus } from '@/features/updates/format-update-status'
 import { UpToDateDialog } from '@/features/updates/up-to-date-dialog'
 import {
   api,

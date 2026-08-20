@@ -83,12 +83,21 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                if window.label() == "main" {
-                    tray::save_main_window_position(window.app_handle());
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    if window.label() == "main" {
+                        tray::save_main_window_position(window.app_handle());
+                    }
+                    let _ = window.hide();
                 }
-                let _ = window.hide();
+                tauri::WindowEvent::Focused(false) if window.label() == "main" => {
+                    let app = window.app_handle();
+                    if !tray::any_sibling_window_visible(&app) {
+                        tray::hide_main_window(&app);
+                    }
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
