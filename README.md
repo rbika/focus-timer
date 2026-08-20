@@ -32,4 +32,4 @@ npm run tauri dev
 ## Architecture
 
 - **Rust** owns the timer engine, persistence, tray, sleep detection, completion sound, and updater flow.
-- **React** renders the timer panel, settings window, and release notes window only — no countdown polling.
+- **React** renders the timer panel and settings window only — no countdown polling.

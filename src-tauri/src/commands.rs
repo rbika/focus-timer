@@ -272,18 +272,6 @@ pub fn get_update_status(app: AppHandle) -> crate::updater::UpdateStatus {
     crate::updater::current_status(&app)
 }
 
-#[tauri::command]
-pub fn get_pending_release_notes(
-    app: AppHandle,
-) -> Option<crate::persistence::PendingReleaseNotes> {
-    crate::updater::pending_release_for_current_version(&app)
-}
-
-#[tauri::command]
-pub fn acknowledge_release_notes(app: AppHandle) -> Result<(), String> {
-    crate::updater::acknowledge_release_notes(&app)
-}
-
 fn after_control(app: &AppHandle) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
     state.persist()?;

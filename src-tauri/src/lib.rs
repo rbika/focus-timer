@@ -49,8 +49,6 @@ pub fn run() {
             commands::quit_app,
             commands::check_for_updates,
             commands::get_update_status,
-            commands::get_pending_release_notes,
-            commands::acknowledge_release_notes,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -78,7 +76,6 @@ pub fn run() {
             tray::position_main_window(app.handle());
             start_tick_loop(app.handle().clone());
             updater::start_background_checks(app.handle().clone());
-            updater::show_release_notes_if_needed(app.handle());
 
             Ok(())
         })

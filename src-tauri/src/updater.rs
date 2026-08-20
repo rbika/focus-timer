@@ -6,7 +6,6 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::app_state::AppState;
-use crate::persistence::PendingReleaseNotes;
 
 pub const AUTO_CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const STATUS_EVENT: &str = "update-status";
@@ -178,8 +177,6 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
         Err(err) => return finish_error(&app, err.to_string(), manual),
     };
 
-    let date = update.date.map(|d| d.to_string());
-    let release_notes = update.body.clone();
     let installed_version = update.version.clone();
 
     let mut downloaded: u64 = 0;
@@ -202,17 +199,6 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
     if let Err(err) = download_result {
         return finish_error(&app, err.to_string(), manual);
     }
-
-    {
-        let state = app.state::<AppState>();
-        let mut meta = state.updater_meta.lock().expect("updater meta lock");
-        meta.pending_release = Some(PendingReleaseNotes {
-            version: installed_version.clone(),
-            date,
-            notes: release_notes,
-        });
-    }
-    let _ = app.state::<AppState>().persist();
 
     let status = UpdateStatus::ReadyToRestart {
         version: installed_version.clone(),
@@ -241,44 +227,6 @@ pub fn current_status(app: &AppHandle) -> UpdateStatus {
         .lock()
         .expect("update status lock")
         .clone()
-}
-
-pub fn pending_release_for_current_version(app: &AppHandle) -> Option<PendingReleaseNotes> {
-    let current = app.package_info().version.to_string();
-    let state = app.state::<AppState>();
-    let meta = state.updater_meta.lock().expect("updater meta lock");
-    meta.pending_release
-        .as_ref()
-        .filter(|pending| versions_match(&pending.version, &current))
-        .cloned()
-}
-
-pub fn acknowledge_release_notes(app: &AppHandle) -> Result<(), String> {
-    {
-        let state = app.state::<AppState>();
-        let mut meta = state.updater_meta.lock().expect("updater meta lock");
-        meta.pending_release = None;
-    }
-    app.state::<AppState>().persist()?;
-    Ok(())
-}
-
-pub fn show_release_notes_if_needed(app: &AppHandle) {
-    if pending_release_for_current_version(app).is_none() {
-        let state = app.state::<AppState>();
-        let mut meta = state.updater_meta.lock().expect("updater meta lock");
-        if meta.pending_release.is_some() {
-            meta.pending_release = None;
-            drop(meta);
-            let _ = state.persist();
-        }
-        return;
-    }
-
-    if let Some(window) = app.get_webview_window("release-notes") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
 }
 
 fn finish_error(app: &AppHandle, message: String, manual: bool) -> Result<UpdateStatus, String> {
@@ -334,11 +282,6 @@ fn notes_preview(notes: Option<&str>) -> String {
     format!("{truncated}…")
 }
 
-fn versions_match(pending: &str, current: &str) -> bool {
-    let normalize = |value: &str| value.trim().trim_start_matches('v').to_string();
-    normalize(pending) == normalize(current)
-}
-
 fn unix_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -375,12 +318,5 @@ mod tests {
         let preview = notes_preview(Some(&long));
         assert!(preview.ends_with('…'));
         assert_eq!(preview.chars().count(), NOTES_PREVIEW_CHARS + 1);
-    }
-
-    #[test]
-    fn versions_match_ignores_v_prefix() {
-        assert!(versions_match("v1.2.3", "1.2.3"));
-        assert!(versions_match("1.2.3", "v1.2.3"));
-        assert!(!versions_match("1.2.3", "1.2.4"));
     }
 }

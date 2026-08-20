@@ -29,23 +29,11 @@ pub struct Settings {
     pub auto_check_for_updates: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct PendingReleaseNotes {
-    pub version: String,
-    #[serde(default)]
-    pub date: Option<String>,
-    #[serde(default)]
-    pub notes: Option<String>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdaterMeta {
     #[serde(default)]
     pub last_auto_check_unix: Option<u64>,
-    #[serde(default)]
-    pub pending_release: Option<PendingReleaseNotes>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -230,11 +218,6 @@ mod tests {
         let position = WindowPosition { x: 420, y: 32 };
         let updater = UpdaterMeta {
             last_auto_check_unix: Some(1_700_000_000),
-            pending_release: Some(PendingReleaseNotes {
-                version: "1.1.0".into(),
-                date: Some("2026-08-16T12:00:00Z".into()),
-                notes: Some("- Faster ticks".into()),
-            }),
         };
         persistence
             .save(&settings, &engine, Some(position), &updater)
@@ -291,16 +274,29 @@ mod tests {
     fn updater_meta_roundtrip() {
         let meta = UpdaterMeta {
             last_auto_check_unix: Some(42),
-            pending_release: Some(PendingReleaseNotes {
-                version: "2.0.0".into(),
-                date: None,
-                notes: Some("hello".into()),
-            }),
         };
         let json = serde_json::to_string(&meta).unwrap();
         assert!(json.contains("lastAutoCheckUnix"));
-        assert!(json.contains("pendingRelease"));
         let parsed: UpdaterMeta = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, meta);
+    }
+
+    #[test]
+    fn updater_meta_ignores_legacy_pending_release() {
+        let json = r#"{
+            "lastAutoCheckUnix": 99,
+            "pendingRelease": {
+                "version": "1.0.0",
+                "date": null,
+                "notes": "old post-update notes"
+            }
+        }"#;
+        let parsed: UpdaterMeta = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            parsed,
+            UpdaterMeta {
+                last_auto_check_unix: Some(99),
+            }
+        );
     }
 }

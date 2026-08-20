@@ -23,12 +23,6 @@ export interface Settings {
   autoCheckForUpdates: boolean
 }
 
-export interface PendingReleaseNotes {
-  version: string
-  date?: string | null
-  notes?: string | null
-}
-
 export type UpdateStatus =
   | { kind: 'idle' }
   | { kind: 'checking'; manual: boolean }
@@ -60,9 +54,6 @@ export const api = {
   quitApp: () => invoke<void>('quit_app'),
   checkForUpdates: () => invoke<UpdateStatus>('check_for_updates'),
   getUpdateStatus: () => invoke<UpdateStatus>('get_update_status'),
-  getPendingReleaseNotes: () =>
-    invoke<PendingReleaseNotes | null>('get_pending_release_notes'),
-  acknowledgeReleaseNotes: () => invoke<void>('acknowledge_release_notes'),
   getAppName: () => getName(),
   getAppVersion: () => getVersion(),
 }

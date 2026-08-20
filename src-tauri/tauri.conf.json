@@ -41,22 +41,6 @@
         "maximizable": false,
         "skipTaskbar": true,
         "center": true
-      },
-      {
-        "label": "release-notes",
-        "title": "What’s New",
-        "width": 420,
-        "height": 360,
-        "resizable": false,
-        "fullscreen": false,
-        "visible": false,
-        "decorations": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "minimizable": false,
-        "maximizable": false,
-        "skipTaskbar": true,
-        "center": true
       }
     ],
     "security": {
