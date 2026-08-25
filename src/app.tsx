@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 import { SettingsView } from '@/features/settings/settings-view'
 import { TimerView } from '@/features/timer/timer-view'
+import { UpToDateView } from '@/features/updates/up-to-date-view'
 import { subscribeToBackend } from '@/store/timer-store'
 
 export default function App() {
@@ -25,6 +26,10 @@ export default function App() {
         <SettingsView />
       </div>
     )
+  }
+
+  if (label === 'up-to-date') {
+    return <UpToDateView />
   }
 
   return (

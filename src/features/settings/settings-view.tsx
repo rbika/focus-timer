@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { WindowTitleBar } from '@/components/window-title-bar'
-import { UpToDateDialog } from '@/features/updates/up-to-date-dialog'
 import {
   api,
   NO_COMPLETION_SOUND,
@@ -31,7 +30,6 @@ export function SettingsView() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     kind: 'idle',
   })
-  const [upToDateDialogOpen, setUpToDateDialogOpen] = useState(false)
 
   useEffect(() => {
     void api.getSystemSounds().then(setSounds)
@@ -49,12 +47,6 @@ export function SettingsView() {
       unlisten?.()
     }
   }, [])
-
-  useEffect(() => {
-    if (updateStatus.kind === 'upToDate' && updateStatus.manual) {
-      setUpToDateDialogOpen(true)
-    }
-  }, [updateStatus])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -90,13 +82,7 @@ export function SettingsView() {
     updateStatus.kind === 'installing'
 
   return (
-    <div className="relative flex h-full flex-col">
-      <UpToDateDialog
-        open={upToDateDialogOpen}
-        appName={appName}
-        version={appVersion}
-        onClose={() => setUpToDateDialogOpen(false)}
-      />
+    <div className="flex h-full flex-col">
       <WindowTitleBar title="Settings" />
       <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-8">
         <SettingsGroup>

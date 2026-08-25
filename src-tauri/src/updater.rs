@@ -122,6 +122,9 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
     let Some(update) = update else {
         let status = UpdateStatus::UpToDate { manual };
         set_status(&app, status.clone());
+        if manual {
+            show_up_to_date_window(&app);
+        }
         return Ok(status);
     };
 
@@ -269,6 +272,13 @@ fn ask_dialog(app: &AppHandle, title: &str, message: &str, ok: &str, cancel: &st
             cancel.to_string(),
         ))
         .blocking_show()
+}
+
+fn show_up_to_date_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("up-to-date") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }
 
 fn notes_preview(notes: Option<&str>) -> String {

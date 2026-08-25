@@ -9,6 +9,7 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "label": "main",
@@ -37,6 +38,22 @@
         "decorations": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
+        "minimizable": false,
+        "maximizable": false,
+        "skipTaskbar": true,
+        "center": true
+      },
+      {
+        "label": "up-to-date",
+        "title": "Focus Timer",
+        "width": 260,
+        "height": 280,
+        "resizable": false,
+        "fullscreen": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true,
         "minimizable": false,
         "maximizable": false,
         "skipTaskbar": true,
