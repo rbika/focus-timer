@@ -20,6 +20,8 @@ pub struct Settings {
     pub hide_window_on_start: bool,
     pub pause_on_sleep: bool,
     pub start_at_login: bool,
+    #[serde(default = "default_true")]
+    pub notifications_enabled: bool,
     pub sound_enabled: bool,
     #[serde(default)]
     pub icon_only: bool,
@@ -48,6 +50,7 @@ impl Default for Settings {
             hide_window_on_start: true,
             pause_on_sleep: true,
             start_at_login: false,
+            notifications_enabled: true,
             sound_enabled: true,
             icon_only: false,
             completion_sound: default_completion_sound(),
@@ -192,6 +195,7 @@ mod tests {
         assert!(s.hide_window_on_start);
         assert!(s.pause_on_sleep);
         assert!(!s.start_at_login);
+        assert!(s.notifications_enabled);
         assert!(s.sound_enabled);
         assert!(!s.icon_only);
         assert_eq!(s.completion_sound, "Glass");
@@ -239,6 +243,7 @@ mod tests {
         assert!(json.contains("hideWindowOnStart"));
         assert!(json.contains("pauseOnSleep"));
         assert!(json.contains("startAtLogin"));
+        assert!(json.contains("notificationsEnabled"));
         assert!(json.contains("soundEnabled"));
         assert!(json.contains("iconOnly"));
         assert!(json.contains("completionSound"));
@@ -267,6 +272,7 @@ mod tests {
         }"#;
         let state: PersistedState = serde_json::from_str(json).unwrap();
         assert!(state.settings.auto_check_for_updates);
+        assert!(state.settings.notifications_enabled);
         assert_eq!(state.updater, UpdaterMeta::default());
     }
 

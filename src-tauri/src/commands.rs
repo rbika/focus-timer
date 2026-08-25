@@ -31,6 +31,7 @@ pub fn update_settings(app: AppHandle, settings: Settings) -> Result<Settings, S
             hide_window_on_start: settings.hide_window_on_start,
             pause_on_sleep: settings.pause_on_sleep,
             start_at_login: settings.start_at_login,
+            notifications_enabled: settings.notifications_enabled,
             sound_enabled: settings.sound_enabled,
             icon_only: settings.icon_only,
             completion_sound: settings.completion_sound,

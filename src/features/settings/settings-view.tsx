@@ -165,8 +165,23 @@ export function SettingsView() {
         </SettingsGroup>
 
         <SettingsGroup>
-          <SettingsGroupTitle>Sounds</SettingsGroupTitle>
+          <SettingsGroupTitle>Notifications</SettingsGroupTitle>
           <SettingsGroupContent>
+            <SettingsGroupItem>
+              <SettingsGroupItemLabel htmlFor="notifications-enabled">
+                Allow notifications
+              </SettingsGroupItemLabel>
+              <SettingsGroupItemControl>
+                <Switch
+                  id="notifications-enabled"
+                  checked={settings.notificationsEnabled}
+                  onCheckedChange={(value) =>
+                    update('notificationsEnabled', value)
+                  }
+                  aria-label="Allow notifications"
+                />
+              </SettingsGroupItemControl>
+            </SettingsGroupItem>
             <SettingsGroupItem>
               <SettingsGroupItemLabel htmlFor="sound-enabled">
                 Play completion sound

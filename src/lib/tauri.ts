@@ -17,6 +17,7 @@ export interface Settings {
   hideWindowOnStart: boolean
   pauseOnSleep: boolean
   startAtLogin: boolean
+  notificationsEnabled: boolean
   soundEnabled: boolean
   iconOnly: boolean
   completionSound: string
