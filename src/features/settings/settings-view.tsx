@@ -15,6 +15,7 @@ import { WindowTitleBar } from '@/components/window-title-bar'
 import { UpToDateDialog } from '@/features/updates/up-to-date-dialog'
 import {
   api,
+  NO_COMPLETION_SOUND,
   onUpdateStatus,
   type Settings,
   type UpdateStatus,
@@ -183,19 +184,6 @@ export function SettingsView() {
               </SettingsGroupItemControl>
             </SettingsGroupItem>
             <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="sound-enabled">
-                Play completion sound
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="sound-enabled"
-                  checked={settings.soundEnabled}
-                  onCheckedChange={(value) => update('soundEnabled', value)}
-                  aria-label="Play completion sound"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-            <SettingsGroupItem>
               <SettingsGroupItemLabel htmlFor="completion-sound">
                 Completion sound
               </SettingsGroupItemLabel>
@@ -203,13 +191,15 @@ export function SettingsView() {
                 <Select
                   id="completion-sound"
                   value={settings.completionSound}
-                  disabled={!settings.soundEnabled}
                   onChange={(e) => {
                     const name = e.target.value
                     update('completionSound', name)
-                    void api.previewSound(name)
+                    if (name !== NO_COMPLETION_SOUND) {
+                      void api.previewSound(name)
+                    }
                   }}
                 >
+                  <option value={NO_COMPLETION_SOUND}>None</option>
                   {sounds.map((name) => (
                     <option key={name} value={name}>
                       {name}

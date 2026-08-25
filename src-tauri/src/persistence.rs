@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::sound::NO_COMPLETION_SOUND;
 use crate::timer::{TimerEngine, TimerStatus};
 
 fn default_true() -> bool {
@@ -22,7 +23,6 @@ pub struct Settings {
     pub start_at_login: bool,
     #[serde(default = "default_true")]
     pub notifications_enabled: bool,
-    pub sound_enabled: bool,
     #[serde(default)]
     pub icon_only: bool,
     #[serde(default = "default_completion_sound")]
@@ -51,7 +51,6 @@ impl Default for Settings {
             pause_on_sleep: true,
             start_at_login: false,
             notifications_enabled: true,
-            sound_enabled: true,
             icon_only: false,
             completion_sound: default_completion_sound(),
             auto_check_for_updates: true,
@@ -100,7 +99,7 @@ impl Persistence {
                 UpdaterMeta::default(),
             );
         };
-        let Ok(state) = serde_json::from_slice::<PersistedState>(&bytes) else {
+        let Ok(mut state) = serde_json::from_slice::<PersistedState>(&bytes) else {
             return (
                 Settings::default(),
                 TimerEngine::default(),
@@ -108,6 +107,17 @@ impl Persistence {
                 UpdaterMeta::default(),
             );
         };
+
+        // Migrate legacy `soundEnabled: false` → `completionSound: "None"`.
+        if let Ok(raw) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+            if raw
+                .pointer("/settings/soundEnabled")
+                .and_then(|v| v.as_bool())
+                == Some(false)
+            {
+                state.settings.completion_sound = NO_COMPLETION_SOUND.to_string();
+            }
+        }
 
         let duration = state.timer.duration_secs;
         let mut engine = TimerEngine::new(duration);
@@ -196,7 +206,6 @@ mod tests {
         assert!(s.pause_on_sleep);
         assert!(!s.start_at_login);
         assert!(s.notifications_enabled);
-        assert!(s.sound_enabled);
         assert!(!s.icon_only);
         assert_eq!(s.completion_sound, "Glass");
         assert!(s.auto_check_for_updates);
@@ -244,7 +253,7 @@ mod tests {
         assert!(json.contains("pauseOnSleep"));
         assert!(json.contains("startAtLogin"));
         assert!(json.contains("notificationsEnabled"));
-        assert!(json.contains("soundEnabled"));
+        assert!(!json.contains("soundEnabled"));
         assert!(json.contains("iconOnly"));
         assert!(json.contains("completionSound"));
         assert!(json.contains("autoCheckForUpdates"));
@@ -274,6 +283,45 @@ mod tests {
         assert!(state.settings.auto_check_for_updates);
         assert!(state.settings.notifications_enabled);
         assert_eq!(state.updater, UpdaterMeta::default());
+    }
+
+    #[test]
+    fn legacy_sound_enabled_false_migrates_to_none() {
+        let dir = std::env::temp_dir().join(format!(
+            "focus-timer-sound-migrate-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("state.json");
+        fs::write(
+            &path,
+            r#"{
+                "settings": {
+                    "hideWindowOnStart": true,
+                    "pauseOnSleep": true,
+                    "startAtLogin": false,
+                    "soundEnabled": false,
+                    "iconOnly": false,
+                    "completionSound": "Glass"
+                },
+                "timer": {
+                    "status": "idle",
+                    "durationSecs": 1500,
+                    "remainingAtPause": 1500,
+                    "deadlineUnix": null
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let persistence = Persistence::new(dir.clone());
+        let (settings, _, _, _) = persistence.load();
+        assert_eq!(settings.completion_sound, NO_COMPLETION_SOUND);
+
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

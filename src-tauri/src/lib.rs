@@ -163,17 +163,14 @@ fn start_tick_loop(app: tauri::AppHandle) {
             tray::emit_tick_if_visible(&app, &snapshot);
 
             if completed {
-                let (notifications_enabled, sound_enabled, completion_sound) = {
+                let (notifications_enabled, completion_sound) = {
                     let settings = state.settings.lock().expect("settings");
                     (
                         settings.notifications_enabled,
-                        settings.sound_enabled,
                         settings.completion_sound.clone(),
                     )
                 };
-                if sound_enabled {
-                    sound::play_named_sound(&completion_sound);
-                }
+                sound::play_named_sound(&completion_sound);
                 if notifications_enabled {
                     notification::show_timer_finished(&app);
                 }

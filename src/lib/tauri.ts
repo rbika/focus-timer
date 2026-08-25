@@ -18,11 +18,13 @@ export interface Settings {
   pauseOnSleep: boolean
   startAtLogin: boolean
   notificationsEnabled: boolean
-  soundEnabled: boolean
   iconOnly: boolean
   completionSound: string
   autoCheckForUpdates: boolean
 }
+
+/** Sentinel for disabling the completion sound (first option in the select). */
+export const NO_COMPLETION_SOUND = 'None'
 
 export type UpdateStatus =
   | { kind: 'idle' }

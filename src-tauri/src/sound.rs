@@ -1,3 +1,6 @@
+/// Sentinel value for "no completion sound" (shown as "None" in settings).
+pub const NO_COMPLETION_SOUND: &str = "None";
+
 /// Built-in macOS system sound names (`/System/Library/Sounds/*.aiff`),
 /// as listed in System Settings > Sound > Sound Effects.
 pub const SYSTEM_SOUNDS: &[&str] = &[
@@ -17,9 +20,17 @@ pub const SYSTEM_SOUNDS: &[&str] = &[
     "Tink",
 ];
 
+pub fn is_completion_sound_enabled(name: &str) -> bool {
+    !name.is_empty() && name != NO_COMPLETION_SOUND
+}
+
 /// Play a native macOS system sound by name via `NSSound`.
 #[cfg(target_os = "macos")]
 pub fn play_named_sound(name: &str) {
+    if !is_completion_sound_enabled(name) {
+        return;
+    }
+
     use objc2_app_kit::NSSound;
     use objc2_foundation::NSString;
 
