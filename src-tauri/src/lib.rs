@@ -1,5 +1,6 @@
 mod app_state;
 mod commands;
+mod notification;
 mod persistence;
 mod sleep;
 mod sound;
@@ -28,6 +29,7 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_snapshot,
@@ -168,6 +170,7 @@ fn start_tick_loop(app: tauri::AppHandle) {
                 if sound_enabled {
                     sound::play_named_sound(&completion_sound);
                 }
+                notification::show_timer_finished(&app);
                 let _ = state.persist();
                 tray::refresh_tray_menu(&app);
                 let _ = app.emit("timer-completed", &snapshot);
