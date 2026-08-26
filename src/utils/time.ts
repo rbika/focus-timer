@@ -39,4 +39,20 @@ function digitsToMask(raw: string): string {
   return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`
 }
 
-export { secsToMask, maskToSecs, digitsToMask }
+/** Formats seconds as a compact label like `25m` or `1h30m`. */
+function secsToCompact(total: number): string {
+  const capped = Math.min(MAX_DURATION_SECS, Math.max(0, Math.floor(total)))
+  if (capped === 0) return '0m'
+
+  const hours = Math.floor(capped / 3600)
+  const minutes = Math.floor((capped % 3600) / 60)
+  const seconds = capped % 60
+
+  const parts: string[] = []
+  if (hours > 0) parts.push(`${hours}h`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+  if (seconds > 0) parts.push(`${seconds}s`)
+  return parts.join('')
+}
+
+export { secsToMask, maskToSecs, digitsToMask, secsToCompact }

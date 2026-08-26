@@ -15,6 +15,10 @@ fn default_completion_sound() -> String {
     "Glass".to_string()
 }
 
+fn default_presets() -> [Option<u64>; 3] {
+    [None, None, None]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
@@ -29,6 +33,8 @@ pub struct Settings {
     pub completion_sound: String,
     #[serde(default = "default_true")]
     pub auto_check_for_updates: bool,
+    #[serde(default = "default_presets")]
+    pub presets: [Option<u64>; 3],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -54,6 +60,7 @@ impl Default for Settings {
             icon_only: false,
             completion_sound: default_completion_sound(),
             auto_check_for_updates: true,
+            presets: default_presets(),
         }
     }
 }
@@ -209,6 +216,7 @@ mod tests {
         assert!(!s.icon_only);
         assert_eq!(s.completion_sound, "Glass");
         assert!(s.auto_check_for_updates);
+        assert_eq!(s.presets, [None, None, None]);
     }
 
     #[test]
@@ -257,8 +265,32 @@ mod tests {
         assert!(json.contains("iconOnly"));
         assert!(json.contains("completionSound"));
         assert!(json.contains("autoCheckForUpdates"));
+        assert!(json.contains("presets"));
         let parsed: Settings = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, Settings::default());
+    }
+
+    #[test]
+    fn legacy_state_migrates_missing_presets() {
+        let json = r#"{
+            "settings": {
+                "hideWindowOnStart": true,
+                "pauseOnSleep": true,
+                "startAtLogin": false,
+                "notificationsEnabled": true,
+                "iconOnly": false,
+                "completionSound": "Glass",
+                "autoCheckForUpdates": true
+            },
+            "timer": {
+                "status": "idle",
+                "durationSecs": 1500,
+                "remainingAtPause": 1500,
+                "deadlineUnix": null
+            }
+        }"#;
+        let state: PersistedState = serde_json::from_str(json).unwrap();
+        assert_eq!(state.settings.presets, [None, None, None]);
     }
 
     #[test]

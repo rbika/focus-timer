@@ -35,6 +35,7 @@ pub fn update_settings(app: AppHandle, settings: Settings) -> Result<Settings, S
             icon_only: settings.icon_only,
             completion_sound: settings.completion_sound,
             auto_check_for_updates: settings.auto_check_for_updates,
+            presets: settings.presets,
         };
     }
 

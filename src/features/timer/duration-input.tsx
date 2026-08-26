@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 
+import { cn } from '@/utils/cn'
 import { digitsToMask } from '@/utils/time'
 
 type Props = {
@@ -8,6 +9,9 @@ type Props = {
   onFocus?: () => void
   onBlur?: () => void
   onCommit?: () => void
+  id?: string
+  'aria-label'?: string
+  className?: string
 }
 
 export function DurationInput({
@@ -16,6 +20,9 @@ export function DurationInput({
   onFocus,
   onBlur,
   onCommit,
+  id,
+  'aria-label': ariaLabel = 'Duration',
+  className,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -33,11 +40,12 @@ export function DurationInput({
   return (
     <input
       ref={inputRef}
+      id={id}
       type="text"
       inputMode="numeric"
       autoComplete="off"
       spellCheck={false}
-      aria-label="Duration"
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(digitsToMask(e.target.value))}
       onFocus={() => {
@@ -56,7 +64,10 @@ export function DurationInput({
           onCommit?.()
         }
       }}
-      className="h-12 w-40 rounded-md border border-neutral-300 bg-white text-center text-3xl text-neutral-900 tabular-nums caret-transparent dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+      className={cn(
+        'h-12 w-40 rounded-md border border-neutral-300 bg-white text-center text-3xl text-neutral-900 tabular-nums caret-transparent dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100',
+        className,
+      )}
     />
   )
 }

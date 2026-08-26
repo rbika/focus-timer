@@ -13,6 +13,8 @@ export interface TimerSnapshot {
   formatted: string
 }
 
+export type Presets = [number | null, number | null, number | null]
+
 export interface Settings {
   hideWindowOnStart: boolean
   pauseOnSleep: boolean
@@ -21,6 +23,7 @@ export interface Settings {
   iconOnly: boolean
   completionSound: string
   autoCheckForUpdates: boolean
+  presets: Presets
 }
 
 /** Sentinel for disabling the completion sound (first option in the select). */

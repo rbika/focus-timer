@@ -12,14 +12,18 @@ import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { WindowTitleBar } from '@/components/window-title-bar'
+import { PresetDurationInput } from '@/features/settings/preset-duration-input'
 import {
   api,
   NO_COMPLETION_SOUND,
   onUpdateStatus,
+  type Presets,
   type Settings,
   type UpdateStatus,
 } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
+
+const PRESET_LABELS = ['Preset 1', 'Preset 2', 'Preset 3'] as const
 
 export function SettingsView() {
   const settings = useTimerStore((s) => s.settings)
@@ -76,6 +80,15 @@ export function SettingsView() {
     void saveSettings({ ...current, [key]: value })
   }
 
+  const updatePreset = (index: number, secs: number | null) => {
+    const current = useTimerStore.getState().settings
+    if (!current) return
+    if (current.presets[index] === secs) return
+    const presets = [...current.presets] as Presets
+    presets[index] = secs
+    void saveSettings({ ...current, presets })
+  }
+
   const checking =
     updateStatus.kind === 'checking' ||
     updateStatus.kind === 'downloading' ||
@@ -129,6 +142,27 @@ export function SettingsView() {
                 />
               </SettingsGroupItemControl>
             </SettingsGroupItem>
+          </SettingsGroupContent>
+        </SettingsGroup>
+
+        <SettingsGroup>
+          <SettingsGroupTitle>Presets</SettingsGroupTitle>
+          <SettingsGroupContent>
+            {PRESET_LABELS.map((label, index) => (
+              <SettingsGroupItem key={label}>
+                <SettingsGroupItemLabel htmlFor={`preset-${index}`}>
+                  {label}
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <PresetDurationInput
+                    id={`preset-${index}`}
+                    label={label}
+                    valueSecs={settings.presets[index]}
+                    onCommit={(secs) => updatePreset(index, secs)}
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+            ))}
           </SettingsGroupContent>
         </SettingsGroup>
 

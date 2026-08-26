@@ -7,10 +7,11 @@ import { WindowTitleBar } from '@/components/window-title-bar'
 import { DurationInput } from '@/features/timer/duration-input'
 import { api } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
-import { maskToSecs, secsToMask } from '@/utils/time'
+import { maskToSecs, secsToCompact, secsToMask } from '@/utils/time'
 
 export function TimerView() {
   const snapshot = useTimerStore((s) => s.snapshot)
+  const settings = useTimerStore((s) => s.settings)
   const ready = useTimerStore((s) => s.ready)
   const togglePause = useTimerStore((s) => s.actions.togglePause)
   const reset = useTimerStore((s) => s.actions.reset)
@@ -75,6 +76,16 @@ export function TimerView() {
       }, 200)
     },
     [runExclusive, syncDuration],
+  )
+
+  const applyPreset = useCallback(
+    (secs: number) => {
+      editingRef.current = false
+      const next = secsToMask(secs)
+      setMask(next)
+      void commitDuration(next)
+    },
+    [commitDuration],
   )
 
   const handleStart = useCallback(async () => {
@@ -180,6 +191,9 @@ export function TimerView() {
         { hour: 'numeric', minute: '2-digit' },
       )
     : '--:--'
+  const configuredPresets = (settings?.presets ?? []).flatMap((secs, index) =>
+    secs != null && secs > 0 ? [{ index, secs }] : [],
+  )
 
   return (
     <div className="flex h-full flex-col">
@@ -235,20 +249,41 @@ export function TimerView() {
           </>
         ) : (
           <>
-            <DurationInput
-              value={mask}
-              onChange={handleMaskChange}
-              onFocus={() => {
-                editingRef.current = true
-              }}
-              onBlur={() => {
-                editingRef.current = false
-                const normalized = secsToMask(maskToSecs(mask))
-                setMask(normalized)
-                void commitDuration(normalized)
-              }}
-              onCommit={() => void handleStart()}
-            />
+            <div className="flex flex-col items-center gap-2">
+              <DurationInput
+                value={mask}
+                onChange={handleMaskChange}
+                onFocus={() => {
+                  editingRef.current = true
+                }}
+                onBlur={() => {
+                  editingRef.current = false
+                  const normalized = secsToMask(maskToSecs(mask))
+                  setMask(normalized)
+                  void commitDuration(normalized)
+                }}
+                onCommit={() => void handleStart()}
+              />
+
+              {configuredPresets.length > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-300">
+                    Presets:
+                  </span>
+                  {configuredPresets.map(({ index, secs }) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => applyPreset(secs)}
+                      aria-label={`Use preset ${secsToCompact(secs)}`}
+                      className="rounded-md px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
+                    >
+                      {secsToCompact(secs)}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <div className="flex items-center gap-2">
               <Button
