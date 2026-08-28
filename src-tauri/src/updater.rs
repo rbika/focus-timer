@@ -10,6 +10,7 @@ use crate::app_state::AppState;
 pub const AUTO_CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const STATUS_EVENT: &str = "update-status";
 const NOTES_PREVIEW_CHARS: usize = 400;
+const UPDATE_AVAILABLE_WINDOW: &str = "update-available";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -130,54 +131,76 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
 
     let version = update.version.clone();
     let notes = update.body.clone();
-    set_status(
-        &app,
-        UpdateStatus::Available {
-            version: version.clone(),
-            notes: notes.clone(),
-        },
-    );
+    let status = UpdateStatus::Available {
+        version: version.clone(),
+        notes: notes.clone(),
+    };
+    set_status(&app, status.clone());
+    show_update_available_window(&app);
+    Ok(status)
+}
 
-    let preview = notes_preview(notes.as_deref());
-    let download_message = format!(
-        "Version {version} is available.\n\n{preview}\n\nDownload and install this update?"
-    );
-    if !ask_dialog(
-        &app,
-        "Update Available",
-        &download_message,
-        "Download",
-        "Later",
-    ) {
-        let status = UpdateStatus::Cancelled;
-        set_status(&app, status.clone());
-        return Ok(status);
+pub async fn install_available_update(app: AppHandle) -> Result<UpdateStatus, String> {
+    let state = app.state::<AppState>();
+    if state
+        .update_in_flight
+        .compare_exchange(
+            false,
+            true,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_err()
+    {
+        return Ok(current_status(&app));
     }
 
-    // Re-check before downloading so the accepted version is still current.
+    let expected_version = match current_status(&app) {
+        UpdateStatus::Available { version, .. } => version,
+        other => {
+            state
+                .update_in_flight
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+            return Ok(other);
+        }
+    };
+
+    let result = install_available_update_inner(app.clone(), expected_version).await;
+    state
+        .update_in_flight
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    result
+}
+
+async fn install_available_update_inner(
+    app: AppHandle,
+    expected_version: String,
+) -> Result<UpdateStatus, String> {
     let updater = match app.updater() {
         Ok(updater) => updater,
-        Err(err) => return finish_error(&app, err.to_string(), manual),
+        Err(err) => return finish_error(&app, err.to_string(), true),
     };
     let update = match updater.check().await {
-        Ok(Some(fresh)) if fresh.version == version => fresh,
+        Ok(Some(fresh)) if fresh.version == expected_version => fresh,
         Ok(Some(fresh)) => {
             let status = UpdateStatus::Error {
                 message: format!(
-                    "Update changed from {version} to {}. Check again.",
+                    "Update changed from {expected_version} to {}. Check again.",
                     fresh.version
                 ),
-                manual,
+                manual: true,
             };
             set_status(&app, status.clone());
             return Ok(status);
         }
         Ok(None) => {
-            let status = UpdateStatus::UpToDate { manual };
+            hide_update_available_window(&app);
+            let status = UpdateStatus::UpToDate { manual: true };
             set_status(&app, status.clone());
+            show_up_to_date_window(&app);
             return Ok(status);
         }
-        Err(err) => return finish_error(&app, err.to_string(), manual),
+        Err(err) => return finish_error(&app, err.to_string(), true),
     };
 
     let installed_version = update.version.clone();
@@ -200,13 +223,14 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
         .await;
 
     if let Err(err) = download_result {
-        return finish_error(&app, err.to_string(), manual);
+        return finish_error(&app, err.to_string(), true);
     }
 
     let status = UpdateStatus::ReadyToRestart {
         version: installed_version.clone(),
     };
     set_status(&app, status.clone());
+    hide_update_available_window(&app);
 
     let restart_message = format!(
         "Version {installed_version} was installed.\n\nRestart Focus Timer now to finish updating?"
@@ -222,6 +246,11 @@ async fn run_check_inner(app: AppHandle, manual: bool) -> Result<UpdateStatus, S
     }
 
     Ok(status)
+}
+
+pub fn dismiss_available_update(app: &AppHandle) {
+    hide_update_available_window(app);
+    set_status(app, UpdateStatus::Cancelled);
 }
 
 pub fn current_status(app: &AppHandle) -> UpdateStatus {
@@ -281,6 +310,20 @@ fn show_up_to_date_window(app: &AppHandle) {
     }
 }
 
+fn show_update_available_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(UPDATE_AVAILABLE_WINDOW) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn hide_update_available_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(UPDATE_AVAILABLE_WINDOW) {
+        let _ = window.hide();
+    }
+}
+
+#[allow(dead_code)]
 fn notes_preview(notes: Option<&str>) -> String {
     let Some(notes) = notes.map(str::trim).filter(|s| !s.is_empty()) else {
         return "No release notes provided.".to_string();

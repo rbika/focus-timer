@@ -273,6 +273,18 @@ pub fn get_update_status(app: AppHandle) -> crate::updater::UpdateStatus {
     crate::updater::current_status(&app)
 }
 
+#[tauri::command]
+pub async fn install_available_update(
+    app: AppHandle,
+) -> Result<crate::updater::UpdateStatus, String> {
+    crate::updater::install_available_update(app).await
+}
+
+#[tauri::command]
+pub fn dismiss_available_update(app: AppHandle) {
+    crate::updater::dismiss_available_update(&app);
+}
+
 fn after_control(app: &AppHandle) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
     state.persist()?;

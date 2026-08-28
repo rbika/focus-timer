@@ -13,7 +13,7 @@ use crate::persistence::WindowPosition;
 use crate::timer::{TimerSnapshot, TimerStatus};
 
 const TRAY_ID: &str = "main";
-const SIBLING_WINDOW_LABELS: &[&str] = &["settings", "up-to-date"];
+const SIBLING_WINDOW_LABELS: &[&str] = &["settings", "up-to-date", "update-available"];
 const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
 const TRAY_INACTIVE_OPACITY: f64 = 0.4;
 const TRAY_OPACITY_DURATION: f64 = 0.2;

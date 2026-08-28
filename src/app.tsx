@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 import { SettingsView } from '@/features/settings/settings-view'
 import { TimerView } from '@/features/timer/timer-view'
+import { UpdateAvailableView } from '@/features/updates/update-available-view'
 import { UpToDateView } from '@/features/updates/up-to-date-view'
 import { subscribeToBackend } from '@/store/timer-store'
 
@@ -30,6 +31,14 @@ export default function App() {
 
   if (label === 'up-to-date') {
     return <UpToDateView />
+  }
+
+  if (label === 'update-available') {
+    return (
+      <div className="h-full bg-[canvas]">
+        <UpdateAvailableView />
+      </div>
+    )
   }
 
   return (

@@ -29,7 +29,7 @@ export function UpToDateView() {
   }, [])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[18px] border border-black/50 bg-[canvas] dark:border-white/5">
+    <div className="flex h-full flex-col overflow-hidden rounded-[18px] bg-[canvas]">
       <WindowTitleBar title="" />
       <main className="-mt-3 flex flex-1 flex-col gap-4 px-6 pb-5">
         <img src={appIcon} alt="" className="h-16 w-16 shrink-0" aria-hidden />
