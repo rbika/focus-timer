@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Bell, Pause, Play, X } from 'lucide-react'
+import { Bell, BellOff, Hourglass, Pause, Play, Timer, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
@@ -9,6 +9,7 @@ import { ModeSwitch } from '@/features/timer/mode-switch'
 import { api } from '@/lib/tauri'
 import type { TimerMode } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
+import { cn } from '@/utils/cn'
 import { maskToSecs, secsToCompact, secsToMask } from '@/utils/time'
 
 export function TimerView() {
@@ -201,29 +202,42 @@ export function TimerView() {
   const isActive = isRunning || isPaused
   const isStopwatch = snapshot.mode === 'stopwatch'
   const canStart = isStopwatch || maskToSecs(mask) > 0
-  const endsAt = isStopwatch
-    ? isActive
-      ? '∞'
-      : '--:--'
-    : isRunning
-      ? new Date(Date.now() + snapshot.remainingSecs * 1000).toLocaleTimeString(
-          undefined,
-          { hour: 'numeric', minute: '2-digit' },
-        )
-      : '--:--'
+  const endsAt = isRunning
+    ? new Date(Date.now() + snapshot.remainingSecs * 1000).toLocaleTimeString(
+        undefined,
+        { hour: 'numeric', minute: '2-digit' },
+      )
+    : '--:--'
   const configuredPresets = (settings?.presets ?? []).flatMap((secs, index) =>
     secs != null && secs > 0 ? [{ index, secs }] : [],
   )
 
   return (
     <div className="flex h-full flex-col">
-      <WindowTitleBar
-        title="Focus Timer"
-        onOpenSettings={() => void api.openSettings()}
-      />
-      <main className="flex flex-1 flex-col items-center justify-between gap-5 px-4 py-4">
+      <WindowTitleBar title="" onOpenSettings={() => void api.openSettings()} />
+      <main className="flex flex-1 flex-col items-center justify-between gap-2 px-4 pt-1 pb-4">
         {isActive ? (
-          <>
+          <div className="flex h-full w-full flex-col items-center justify-between gap-3">
+            <div
+              className={cn(
+                'flex h-7 w-full items-center justify-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-50',
+                isPaused && 'opacity-60',
+              )}
+              aria-label={isStopwatch ? 'Stopwatch mode' : 'Timer mode'}
+            >
+              {isStopwatch ? (
+                <>
+                  <Timer className="h-3.5 w-3.5" aria-hidden />
+                  Stopwatch
+                </>
+              ) : (
+                <>
+                  <Hourglass className="h-3.5 w-3.5" aria-hidden />
+                  Timer
+                </>
+              )}
+            </div>
+
             <div className="flex flex-col items-center gap-1">
               <time
                 dateTime={`PT${isStopwatch ? snapshot.elapsedSecs : snapshot.remainingSecs}S`}
@@ -235,19 +249,37 @@ export function TimerView() {
               </time>
 
               <div
-                className={`flex h-4 items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 ${isPaused ? 'opacity-60' : ''}`}
+                className={`mb-4 flex h-4 items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 ${isPaused ? 'opacity-60' : ''}`}
                 aria-live="polite"
               >
-                <Bell className="h-3 w-3" aria-hidden />
-                <span>Ends at {endsAt}</span>
+                {isStopwatch ? (
+                  <>
+                    <BellOff className="flex h-3 w-3 items-center" aria-hidden />
+                    <span>No end time</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="flex h-3 w-3 items-center" aria-hidden />
+                    <span>Ends at {endsAt}</span>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => void reset()}
+                aria-label="Cancel timer"
+                className="flex-1 gap-1.5"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                Cancel
+              </Button>
               <Button
                 onClick={() => void togglePause()}
                 aria-label={isRunning ? 'Pause' : 'Resume'}
-                className="w-24 gap-1.5"
+                className="flex-1 gap-1.5"
               >
                 {isRunning ? (
                   <Pause className="h-3.5 w-3.5" aria-hidden />
@@ -256,20 +288,11 @@ export function TimerView() {
                 )}
                 {isRunning ? 'Pause' : 'Resume'}
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => void reset()}
-                aria-label="Cancel timer"
-                className="w-24 gap-1.5"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Cancel
-              </Button>
             </div>
-          </>
+          </div>
         ) : (
           <>
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex h-full w-full min-w-0 flex-col items-center justify-between gap-3">
               <ModeSwitch mode={snapshot.mode} onChange={handleModeChange} />
 
               {isStopwatch ? (
@@ -277,7 +300,7 @@ export function TimerView() {
                   Free Mode
                 </p>
               ) : (
-                <>
+                <div className="flex w-full flex-col gap-1.5">
                   <DurationInput
                     value={mask}
                     onChange={handleMaskChange}
@@ -294,46 +317,45 @@ export function TimerView() {
                   />
 
                   {configuredPresets.length > 0 ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-neutral-500 dark:text-neutral-300">
-                        Presets:
-                      </span>
-                      {configuredPresets.map(({ index, secs }) => (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => applyPreset(secs)}
-                          aria-label={`Use preset ${secsToCompact(secs)}`}
-                          className="rounded-md px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
-                        >
-                          {secsToCompact(secs)}
-                        </button>
-                      ))}
+                    <div className="flex w-full flex-col gap-1.5">
+                      <div className="flex min-w-0 gap-1.5">
+                        {configuredPresets.map(({ index, secs }) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => applyPreset(secs)}
+                            aria-label={`Use preset ${secsToCompact(secs)}`}
+                            className="h-6 min-w-0 flex-1 rounded border border-neutral-300 px-2 text-xs text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
+                          >
+                            {secsToCompact(secs)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
-                </>
+                </div>
               )}
-            </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => void handleStart()}
-                disabled={!canStart}
-                aria-label="Start"
-                className="w-24 gap-1.5"
-              >
-                <Play className="h-3.5 w-3.5" aria-hidden />
-                Start
-              </Button>
-              <Button
-                variant="secondary"
-                disabled
-                aria-label="Cancel timer"
-                className="w-24 gap-1.5"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Cancel
-              </Button>
+              <div className="flex w-full items-center gap-2">
+                <Button
+                  variant="secondary"
+                  disabled
+                  aria-label="Cancel timer"
+                  className="flex-1 gap-1.5"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => void handleStart()}
+                  disabled={!canStart}
+                  aria-label="Start"
+                  className="flex-1 gap-1.5"
+                >
+                  <Play className="h-3.5 w-3.5" aria-hidden />
+                  Start
+                </Button>
+              </div>
             </div>
           </>
         )}

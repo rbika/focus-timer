@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Focus Timer",
-        "width": 320,
-        "height": 240,
+        "width": 290,
+        "height": 230,
         "resizable": false,
         "fullscreen": false,
         "visible": false,

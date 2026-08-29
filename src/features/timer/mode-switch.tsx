@@ -16,7 +16,7 @@ export function ModeSwitch({ mode, onChange }: Props) {
   }
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex w-full max-w-full min-w-0 items-center gap-2.5">
       <button
         type="button"
         onClick={() => handleSwitchMode('timer')}
@@ -40,29 +40,29 @@ export function ModeSwitch({ mode, onChange }: Props) {
             ? 'Timer mode, switch to stopwatch'
             : 'Stopwatch mode, switch to timer'
         }
-        className="relative flex h-8 w-15 flex-1 items-center rounded-full bg-neutral-200/80 p-0.5 dark:bg-neutral-700/80"
+        className="relative flex h-7 w-24 shrink-0 items-center rounded-full bg-neutral-200/80 p-0.5 dark:bg-neutral-700/80"
       >
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none absolute top-0.5 left-0.5 h-7 w-7 rounded-full bg-white shadow-sm transition-transform dark:bg-neutral-100',
-            isTimerSelected ? 'translate-x-0' : 'translate-x-7',
+            'pointer-events-none absolute inset-y-0.5 w-[calc(50%-4px)] rounded-full bg-white shadow-sm transition-[left] duration-200 dark:bg-neutral-100',
+            isTimerSelected ? 'left-0.5' : 'left-[calc(50%+2px)]',
           )}
         />
-        <span className="relative z-10 flex h-7 w-7 items-center justify-center">
+        <span className="relative z-10 flex flex-1 items-center justify-center">
           <Hourglass
             className={cn(
-              'h-4 w-4 transition-colors',
+              'h-3.5 w-3.5 transition-colors',
               isTimerSelected
                 ? 'text-neutral-700 dark:text-neutral-800'
                 : 'text-neutral-400/70 dark:text-neutral-500',
             )}
           />
         </span>
-        <span className="relative z-10 flex h-7 w-7 flex-1 items-center justify-center">
+        <span className="relative z-10 flex flex-1 items-center justify-center">
           <Timer
             className={cn(
-              'h-4 w-4 transition-colors',
+              'h-3.5 w-3.5 transition-colors',
               !isTimerSelected
                 ? 'text-neutral-700 dark:text-neutral-800'
                 : 'text-neutral-400/70 dark:text-neutral-500',
