@@ -5,6 +5,7 @@ import {
   onSettingsChanged,
   onTimerTick,
   type Settings,
+  type TimerMode,
   type TimerSnapshot,
 } from '@/lib/tauri'
 
@@ -26,6 +27,7 @@ interface TimerActions {
     togglePause: () => Promise<void>
     reset: () => Promise<void>
     setDuration: (durationSecs: number) => Promise<void>
+    setMode: (mode: TimerMode) => Promise<void>
     saveSettings: (settings: Settings) => Promise<void>
   }
 }
@@ -96,6 +98,11 @@ export const useTimerStore = create<TimerStore>()((set) => {
 
       setDuration: async (durationSecs) => {
         const snapshot = await api.setDuration(durationSecs)
+        set({ snapshot })
+      },
+
+      setMode: async (mode) => {
+        const snapshot = await api.setMode(mode)
         set({ snapshot })
       },
 

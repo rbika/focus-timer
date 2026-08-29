@@ -5,7 +5,9 @@ import { Bell, Pause, Play, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { DurationInput } from '@/features/timer/duration-input'
+import { ModeSwitch } from '@/features/timer/mode-switch'
 import { api } from '@/lib/tauri'
+import type { TimerMode } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
 import { maskToSecs, secsToCompact, secsToMask } from '@/utils/time'
 
@@ -16,8 +18,9 @@ export function TimerView() {
   const togglePause = useTimerStore((s) => s.actions.togglePause)
   const reset = useTimerStore((s) => s.actions.reset)
   const setDuration = useTimerStore((s) => s.actions.setDuration)
+  const setMode = useTimerStore((s) => s.actions.setMode)
 
-  const [mask, setMask] = useState('00:25:00')
+  const [mask, setMask] = useState('00:00:00')
   const editingRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const genRef = useRef(0)
@@ -93,6 +96,11 @@ export function TimerView() {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
     }
+    const current = useTimerStore.getState().snapshot
+    if (current?.mode === 'stopwatch') {
+      await togglePause()
+      return
+    }
     const gen = ++genRef.current
     const secs = maskToSecs(mask)
     intendedSecsRef.current = secs
@@ -101,6 +109,13 @@ export function TimerView() {
       if (secs > 0) await togglePause()
     })
   }, [mask, runExclusive, syncDuration, togglePause])
+
+  const handleModeChange = useCallback(
+    (mode: TimerMode) => {
+      void setMode(mode)
+    },
+    [setMode],
+  )
 
   useEffect(() => {
     return () => {
@@ -184,13 +199,18 @@ export function TimerView() {
   const isRunning = snapshot.status === 'running'
   const isPaused = snapshot.status === 'paused'
   const isActive = isRunning || isPaused
-  const canStart = maskToSecs(mask) > 0
-  const endsAt = isRunning
-    ? new Date(Date.now() + snapshot.remainingSecs * 1000).toLocaleTimeString(
-        undefined,
-        { hour: 'numeric', minute: '2-digit' },
-      )
-    : '--:--'
+  const isStopwatch = snapshot.mode === 'stopwatch'
+  const canStart = isStopwatch || maskToSecs(mask) > 0
+  const endsAt = isStopwatch
+    ? isActive
+      ? '∞'
+      : '--:--'
+    : isRunning
+      ? new Date(Date.now() + snapshot.remainingSecs * 1000).toLocaleTimeString(
+          undefined,
+          { hour: 'numeric', minute: '2-digit' },
+        )
+      : '--:--'
   const configuredPresets = (settings?.presets ?? []).flatMap((secs, index) =>
     secs != null && secs > 0 ? [{ index, secs }] : [],
   )
@@ -206,7 +226,7 @@ export function TimerView() {
           <>
             <div className="flex flex-col items-center gap-1">
               <time
-                dateTime={`PT${snapshot.remainingSecs}S`}
+                dateTime={`PT${isStopwatch ? snapshot.elapsedSecs : snapshot.remainingSecs}S`}
                 aria-live="polite"
                 aria-atomic="true"
                 className="text-4xl font-light tracking-tight text-neutral-900 tabular-nums dark:text-neutral-50"
@@ -249,40 +269,50 @@ export function TimerView() {
           </>
         ) : (
           <>
-            <div className="flex flex-col items-center gap-2">
-              <DurationInput
-                value={mask}
-                onChange={handleMaskChange}
-                onFocus={() => {
-                  editingRef.current = true
-                }}
-                onBlur={() => {
-                  editingRef.current = false
-                  const normalized = secsToMask(maskToSecs(mask))
-                  setMask(normalized)
-                  void commitDuration(normalized)
-                }}
-                onCommit={() => void handleStart()}
-              />
+            <div className="flex flex-col items-center gap-3">
+              <ModeSwitch mode={snapshot.mode} onChange={handleModeChange} />
 
-              {configuredPresets.length > 0 ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-neutral-500 dark:text-neutral-300">
-                    Presets:
-                  </span>
-                  {configuredPresets.map(({ index, secs }) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => applyPreset(secs)}
-                      aria-label={`Use preset ${secsToCompact(secs)}`}
-                      className="rounded-md px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
-                    >
-                      {secsToCompact(secs)}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              {isStopwatch ? (
+                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                  Free Mode
+                </p>
+              ) : (
+                <>
+                  <DurationInput
+                    value={mask}
+                    onChange={handleMaskChange}
+                    onFocus={() => {
+                      editingRef.current = true
+                    }}
+                    onBlur={() => {
+                      editingRef.current = false
+                      const normalized = secsToMask(maskToSecs(mask))
+                      setMask(normalized)
+                      void commitDuration(normalized)
+                    }}
+                    onCommit={() => void handleStart()}
+                  />
+
+                  {configuredPresets.length > 0 ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-neutral-500 dark:text-neutral-300">
+                        Presets:
+                      </span>
+                      {configuredPresets.map(({ index, secs }) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => applyPreset(secs)}
+                          aria-label={`Use preset ${secsToCompact(secs)}`}
+                          className="rounded-md px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-200/70 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
+                        >
+                          {secsToCompact(secs)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

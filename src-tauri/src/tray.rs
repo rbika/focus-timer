@@ -10,11 +10,12 @@ use tauri::{
 
 use crate::app_state::AppState;
 use crate::persistence::WindowPosition;
-use crate::timer::{TimerSnapshot, TimerStatus};
+use crate::timer::{TimerSnapshot, TimerMode, TimerStatus};
 
 const TRAY_ID: &str = "main";
 const SIBLING_WINDOW_LABELS: &[&str] = &["settings", "up-to-date", "update-available"];
-const TRAY_ICON_BYTES: &[u8] = include_bytes!("../icons/tray-icon.png");
+const TRAY_ICON_STOPWATCH_BYTES: &[u8] = include_bytes!("../icons/tray-stopwatch.png");
+const TRAY_ICON_TIMER_BYTES: &[u8] = include_bytes!("../icons/tray-hourglass.png");
 const TRAY_INACTIVE_OPACITY: f64 = 0.4;
 const TRAY_OPACITY_DURATION: f64 = 0.2;
 
@@ -23,11 +24,19 @@ const CLICK_GUARD: Duration = Duration::from_millis(300);
 static LAST_TRAY_TOGGLE: Mutex<Option<Instant>> = Mutex::new(None);
 static LAST_MAIN_WINDOW_HIDE: Mutex<Option<Instant>> = Mutex::new(None);
 static LAST_TRAY_DIMMED: Mutex<Option<bool>> = Mutex::new(None);
+static LAST_TRAY_MODE: Mutex<Option<TimerMode>> = Mutex::new(None);
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     let menu = build_menu(app)?;
 
-    let icon = Image::from_bytes(TRAY_ICON_BYTES).expect("valid tray icon png");
+    let mode = app
+        .state::<AppState>()
+        .engine
+        .lock()
+        .expect("engine lock")
+        .mode();
+    *LAST_TRAY_MODE.lock().expect("tray mode lock") = Some(mode);
+    let icon = tray_icon_for_mode(mode);
 
     let initial_title = display_title(app);
 
@@ -56,6 +65,37 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
     configure_status_button(&tray, tray_is_dimmed(app));
 
     Ok(())
+}
+
+fn tray_icon_for_mode(mode: TimerMode) -> Image<'static> {
+    let bytes = match mode {
+        TimerMode::Timer => TRAY_ICON_TIMER_BYTES,
+        TimerMode::Stopwatch => TRAY_ICON_STOPWATCH_BYTES,
+    };
+    Image::from_bytes(bytes).expect("valid tray icon png")
+}
+
+pub fn update_tray_icon(app: &AppHandle) {
+    let mode = app
+        .state::<AppState>()
+        .engine
+        .lock()
+        .expect("engine lock")
+        .mode();
+
+    {
+        let mut last = LAST_TRAY_MODE.lock().expect("tray mode lock");
+        if *last == Some(mode) {
+            return;
+        }
+        *last = Some(mode);
+    }
+
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let icon = tray_icon_for_mode(mode);
+        let _ = tray.set_icon(Some(icon));
+        let _ = tray.set_icon_as_template(true);
+    }
 }
 
 fn toggle_main_window_from_tray(app: &AppHandle) {
@@ -189,9 +229,9 @@ fn configure_status_button(_: &tauri::tray::TrayIcon, _: bool) {}
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     let state = app.state::<AppState>();
-    let (status, duration_secs) = {
+    let (status, duration_secs, mode) = {
         let engine = state.engine.lock().expect("engine lock");
-        (engine.status(), engine.duration_secs())
+        (engine.status(), engine.duration_secs(), engine.mode())
     };
 
     let pause_label = match status {
@@ -200,7 +240,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         TimerStatus::Idle | TimerStatus::Completed => "Start",
     };
     let start_enabled = match status {
-        TimerStatus::Idle | TimerStatus::Completed => duration_secs > 0,
+        TimerStatus::Idle | TimerStatus::Completed => match mode {
+            TimerMode::Stopwatch => true,
+            TimerMode::Timer => duration_secs > 0,
+        },
         TimerStatus::Running | TimerStatus::Paused => true,
     };
     let pause = MenuItem::with_id(

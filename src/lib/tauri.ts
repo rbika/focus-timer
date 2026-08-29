@@ -6,9 +6,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed'
 
+export type TimerMode = 'timer' | 'stopwatch'
+
 export interface TimerSnapshot {
   status: TimerStatus
+  mode: TimerMode
   remainingSecs: number
+  elapsedSecs: number
   durationSecs: number
   formatted: string
 }
@@ -45,6 +49,7 @@ export const api = {
   getSettings: () => invoke<Settings>('get_settings'),
   updateSettings: (settings: Settings) =>
     invoke<Settings>('update_settings', { settings }),
+  setMode: (mode: TimerMode) => invoke<TimerSnapshot>('set_mode', { mode }),
   setDuration: (durationSecs: number) =>
     invoke<TimerSnapshot>('set_duration', { durationSecs }),
   start: () => invoke<TimerSnapshot>('start'),

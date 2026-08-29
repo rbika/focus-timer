@@ -5,7 +5,7 @@ use tauri_plugin_autostart::ManagerExt;
 
 use crate::app_state::AppState;
 use crate::persistence::Settings;
-use crate::timer::{TimerSnapshot, TimerStatus};
+use crate::timer::{TimerSnapshot, TimerMode, TimerStatus};
 
 #[tauri::command]
 pub fn get_snapshot(app: AppHandle) -> TimerSnapshot {
@@ -57,6 +57,30 @@ pub fn update_settings(app: AppHandle, settings: Settings) -> Result<Settings, S
     crate::tray::emit_tick_if_visible(&app, &snapshot);
 
     Ok(saved)
+}
+
+#[tauri::command]
+pub fn set_mode(app: AppHandle, mode: TimerMode) -> Result<TimerSnapshot, String> {
+    let state = app.state::<AppState>();
+
+    {
+        let mut engine = state.engine.lock().expect("engine lock");
+        if !matches!(engine.status(), TimerStatus::Idle | TimerStatus::Completed) {
+            return Err("Timer must be idle to change mode".into());
+        }
+        if engine.mode() == mode {
+            return Ok(TimerSnapshot::from_engine(&engine, SystemTime::now()));
+        }
+        engine.set_mode(mode);
+    }
+
+    state.persist()?;
+    let snapshot = state.snapshot();
+    crate::tray::update_tray_title(&app, &snapshot.formatted);
+    crate::tray::update_tray_icon(&app);
+    crate::tray::refresh_tray_menu(&app);
+    let _ = app.emit("timer-tick", &snapshot);
+    Ok(snapshot)
 }
 
 #[tauri::command]

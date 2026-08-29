@@ -35,6 +35,7 @@ pub fn run() {
             commands::get_snapshot,
             commands::get_settings,
             commands::update_settings,
+            commands::set_mode,
             commands::set_duration,
             commands::start,
             commands::pause,
@@ -92,7 +93,8 @@ pub fn run() {
                     }
                     let _ = window.hide();
                 }
-                tauri::WindowEvent::Focused(false) if window.label() == "main" => {
+                tauri::WindowEvent::Focused(false) if window.label() == "main" =>
+                {
                     let app = window.app_handle();
                     if !tray::any_sibling_window_visible(app) {
                         tray::hide_main_window(app);

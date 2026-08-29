@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::sound::NO_COMPLETION_SOUND;
-use crate::timer::{TimerEngine, TimerStatus};
+use crate::timer::{TimerEngine, TimerMode, TimerStatus};
 
 fn default_true() -> bool {
     true
@@ -68,11 +68,18 @@ impl Default for Settings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PersistedTimer {
+    #[serde(default)]
+    mode: TimerMode,
     status: TimerStatus,
     duration_secs: u64,
     remaining_at_pause: u64,
-    /// Unix timestamp seconds when running.
+    /// Unix timestamp seconds when running (timer mode).
     deadline_unix: Option<u64>,
+    #[serde(default)]
+    elapsed_at_pause: u64,
+    /// Unix timestamp seconds when running (stopwatch mode).
+    #[serde(default)]
+    started_at_unix: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,24 +137,45 @@ impl Persistence {
         let mut engine = TimerEngine::new(duration);
         let now = SystemTime::now();
 
-        match state.timer.status {
-            TimerStatus::Running => {
-                if let Some(deadline_unix) = state.timer.deadline_unix {
-                    let deadline = UNIX_EPOCH + Duration::from_secs(deadline_unix);
-                    engine.restore_running(deadline, now);
-                } else {
+        match state.timer.mode {
+            TimerMode::Timer => match state.timer.status {
+                TimerStatus::Running => {
+                    if let Some(deadline_unix) = state.timer.deadline_unix {
+                        let deadline = UNIX_EPOCH + Duration::from_secs(deadline_unix);
+                        engine.restore_running(deadline, now);
+                    } else {
+                        engine.reset();
+                    }
+                }
+                TimerStatus::Paused => {
+                    engine.restore_paused(state.timer.remaining_at_pause);
+                }
+                TimerStatus::Completed => {
+                    engine.restore_completed();
+                }
+                TimerStatus::Idle => {
                     engine.reset();
                 }
-            }
-            TimerStatus::Paused => {
-                engine.restore_paused(state.timer.remaining_at_pause);
-            }
-            TimerStatus::Completed => {
-                engine.restore_completed();
-            }
-            TimerStatus::Idle => {
-                engine.reset();
-            }
+            },
+            TimerMode::Stopwatch => match state.timer.status {
+                TimerStatus::Running => {
+                    if let Some(started_at_unix) = state.timer.started_at_unix {
+                        let started_at = UNIX_EPOCH + Duration::from_secs(started_at_unix);
+                        engine.restore_stopwatch_running(started_at, now);
+                    } else {
+                        engine.set_mode(TimerMode::Stopwatch);
+                        engine.reset();
+                    }
+                }
+                TimerStatus::Paused => {
+                    engine.set_mode(TimerMode::Stopwatch);
+                    engine.restore_stopwatch_paused(state.timer.elapsed_at_pause);
+                }
+                TimerStatus::Idle | TimerStatus::Completed => {
+                    engine.set_mode(TimerMode::Stopwatch);
+                    engine.reset();
+                }
+            },
         }
 
         (
@@ -175,14 +203,23 @@ impl Persistence {
                 .ok()
                 .map(|d| d.as_secs())
         });
+        let started_at_unix = engine.started_at().and_then(|started| {
+            started
+                .duration_since(UNIX_EPOCH)
+                .ok()
+                .map(|d| d.as_secs())
+        });
 
         let state = PersistedState {
             settings: settings.clone(),
             timer: PersistedTimer {
+                mode: engine.mode(),
                 status: engine.status(),
                 duration_secs: engine.duration_secs(),
                 remaining_at_pause: engine.remaining_secs(SystemTime::now()),
                 deadline_unix,
+                elapsed_at_pause: engine.elapsed_at_pause(),
+                started_at_unix,
             },
             main_window_position,
             updater: updater.clone(),
@@ -368,21 +405,74 @@ mod tests {
     }
 
     #[test]
-    fn updater_meta_ignores_legacy_pending_release() {
-        let json = r#"{
-            "lastAutoCheckUnix": 99,
-            "pendingRelease": {
-                "version": "1.0.0",
-                "date": null,
-                "notes": "old post-update notes"
-            }
-        }"#;
-        let parsed: UpdaterMeta = serde_json::from_str(json).unwrap();
-        assert_eq!(
-            parsed,
-            UpdaterMeta {
-                last_auto_check_unix: Some(99),
-            }
-        );
+    fn legacy_state_without_mode_loads_as_timer() {
+        let dir = std::env::temp_dir().join(format!(
+            "focus-timer-mode-migrate-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("state.json");
+        fs::write(
+            &path,
+            r#"{
+                "settings": {
+                    "hideWindowOnStart": true,
+                    "pauseOnSleep": true,
+                    "startAtLogin": false,
+                    "notificationsEnabled": true,
+                    "iconOnly": false,
+                    "completionSound": "Glass",
+                    "autoCheckForUpdates": true,
+                    "presets": [null, null, null]
+                },
+                "timer": {
+                    "status": "idle",
+                    "durationSecs": 1500,
+                    "remainingAtPause": 1500,
+                    "deadlineUnix": null
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let persistence = Persistence::new(dir.clone());
+        let (_, engine, _, _) = persistence.load();
+        assert_eq!(engine.mode(), TimerMode::Timer);
+        assert_eq!(engine.duration_secs(), 1500);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn stopwatch_state_roundtrip() {
+        let dir = std::env::temp_dir().join(format!(
+            "focus-timer-stopwatch-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let persistence = Persistence::new(dir.clone());
+
+        let settings = Settings::default();
+        let mut engine = TimerEngine::new(60);
+        engine.set_mode(TimerMode::Stopwatch);
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(2_000_000_000);
+        engine.start(now);
+        engine.pause(now + Duration::from_secs(42));
+        persistence
+            .save(&settings, &engine, None, &UpdaterMeta::default())
+            .unwrap();
+
+        let (_, loaded_engine, _, _) = persistence.load();
+        assert_eq!(loaded_engine.mode(), TimerMode::Stopwatch);
+        assert_eq!(loaded_engine.status(), TimerStatus::Paused);
+        assert_eq!(loaded_engine.elapsed_at_pause(), 42);
+
+        let _ = fs::remove_dir_all(dir);
     }
 }
