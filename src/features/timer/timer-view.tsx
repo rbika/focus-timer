@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Bell, BellOff, Hourglass, Pause, Play, Timer, X } from 'lucide-react'
+import { Hourglass, Pause, Play, Timer, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
@@ -208,6 +208,13 @@ export function TimerView() {
         { hour: 'numeric', minute: '2-digit' },
       )
     : '--:--'
+  const remainingPercent =
+    !isStopwatch && snapshot.durationSecs > 0
+      ? Math.min(
+          100,
+          Math.max(0, (snapshot.remainingSecs / snapshot.durationSecs) * 100),
+        )
+      : 0
   const configuredPresets = (settings?.presets ?? []).flatMap((secs, index) =>
     secs != null && secs > 0 ? [{ index, secs }] : [],
   )
@@ -249,18 +256,31 @@ export function TimerView() {
               </time>
 
               <div
-                className={`mb-4 flex h-4 items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400 ${isPaused ? 'opacity-60' : ''}`}
+                className={`mb-4 flex w-full flex-col items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 ${isPaused ? 'opacity-60' : ''}`}
                 aria-live="polite"
               >
                 {isStopwatch ? (
-                  <>
-                    <BellOff className="flex h-3 w-3 items-center" aria-hidden />
-                    <span>No end time</span>
-                  </>
+                  <span>No end time</span>
                 ) : (
                   <>
-                    <Bell className="flex h-3 w-3 items-center" aria-hidden />
-                    <span>Ends at {endsAt}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>{secsToCompact(snapshot.durationSecs)}</span>
+                      <span>•</span>
+                      <span>Ends {endsAt}</span>
+                    </div>
+                    <div
+                      role="progressbar"
+                      aria-label="Time remaining"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(remainingPercent)}
+                      className="h-1 w-full overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700"
+                    >
+                      <div
+                        className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-linear dark:bg-neutral-50"
+                        style={{ width: `${remainingPercent}%` }}
+                      />
+                    </div>
                   </>
                 )}
               </div>
