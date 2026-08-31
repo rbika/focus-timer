@@ -47,7 +47,7 @@ pub fn run() {
             commands::hide_timer_window,
             commands::toggle_timer_window,
             commands::open_settings,
-            commands::get_system_sounds,
+            commands::get_completion_sounds,
             commands::preview_sound,
             commands::quit_app,
             commands::check_for_updates,
@@ -174,7 +174,7 @@ fn start_tick_loop(app: tauri::AppHandle) {
                         settings.completion_sound.clone(),
                     )
                 };
-                sound::play_named_sound(&completion_sound);
+                sound::play_named_sound(&app, &completion_sound);
                 if notifications_enabled {
                     notification::show_timer_finished(&app);
                 }

@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::sound::NO_COMPLETION_SOUND;
+use crate::sound::{normalize_completion_sound, NO_COMPLETION_SOUND};
 use crate::timer::{TimerEngine, TimerMode, TimerStatus};
 
 fn default_true() -> bool {
@@ -12,7 +12,7 @@ fn default_true() -> bool {
 }
 
 fn default_completion_sound() -> String {
-    "Glass".to_string()
+    "Door Bell".to_string()
 }
 
 fn default_presets() -> [Option<u64>; 3] {
@@ -133,6 +133,9 @@ impl Persistence {
             }
         }
 
+        state.settings.completion_sound =
+            normalize_completion_sound(&state.settings.completion_sound);
+
         let duration = state.timer.duration_secs;
         let mut engine = TimerEngine::new(duration);
         let now = SystemTime::now();
@@ -251,7 +254,7 @@ mod tests {
         assert!(!s.start_at_login);
         assert!(s.notifications_enabled);
         assert!(!s.icon_only);
-        assert_eq!(s.completion_sound, "Glass");
+        assert_eq!(s.completion_sound, "Door Bell");
         assert!(s.auto_check_for_updates);
         assert_eq!(s.presets, [None, None, None]);
     }

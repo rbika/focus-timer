@@ -36,7 +36,7 @@ export function SettingsView() {
   })
 
   useEffect(() => {
-    void api.getSystemSounds().then(setSounds)
+    void api.getCompletionSounds().then(setSounds)
     void api.getAppName().then(setAppName)
     void api.getAppVersion().then(setAppVersion)
     void api.getUpdateStatus().then(setUpdateStatus)

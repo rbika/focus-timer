@@ -266,13 +266,13 @@ pub fn open_settings(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_system_sounds() -> Vec<&'static str> {
-    crate::sound::SYSTEM_SOUNDS.to_vec()
+pub fn get_completion_sounds() -> Vec<&'static str> {
+    crate::sound::COMPLETION_SOUNDS.to_vec()
 }
 
 #[tauri::command]
-pub fn preview_sound(name: String) {
-    crate::sound::play_named_sound(&name);
+pub fn preview_sound(app: AppHandle, name: String) {
+    crate::sound::play_named_sound(&app, &name);
 }
 
 #[tauri::command]
