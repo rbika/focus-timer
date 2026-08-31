@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { DurationInput } from '@/features/timer/duration-input'
 import { ModeSwitch } from '@/features/timer/mode-switch'
+import { TimerProgress } from '@/features/timer/timer-progress'
 import { api } from '@/lib/tauri'
 import type { TimerMode } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
@@ -208,13 +209,6 @@ export function TimerView() {
         { hour: 'numeric', minute: '2-digit' },
       )
     : '--:--'
-  const remainingPercent =
-    !isStopwatch && snapshot.durationSecs > 0
-      ? Math.min(
-          100,
-          Math.max(0, (snapshot.remainingSecs / snapshot.durationSecs) * 100),
-        )
-      : 0
   const configuredPresets = (settings?.presets ?? []).flatMap((secs, index) =>
     secs != null && secs > 0 ? [{ index, secs }] : [],
   )
@@ -271,19 +265,10 @@ export function TimerView() {
                   <>
                     <div className="mt-1 flex w-[80%] items-center gap-1.5">
                       <span className="w-20 text-right">{endsAt}</span>
-                      <div
-                        role="progressbar"
-                        aria-label="Time remaining"
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuenow={Math.round(remainingPercent)}
-                        className="h-1 w-full overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700"
-                      >
-                        <div
-                          className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-linear dark:bg-neutral-50"
-                          style={{ width: `${remainingPercent}%` }}
-                        />
-                      </div>
+                      <TimerProgress
+                        remainingSecs={snapshot.remainingSecs}
+                        durationSecs={snapshot.durationSecs}
+                      />
                       <span className="w-20 text-left">
                         {secsToCompact(snapshot.durationSecs)}
                       </span>

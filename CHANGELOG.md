@@ -11,8 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved release notes with better Markdown formatting.
 
+### Bug fixes
+
+- Fixed the timer progress bar position when reopening the window.
+
 ## v1.6.1
 
 ### Bug Fixes
 
-- Fixed an issue where release notes were not displayed when updating to a new version..
+- Fixed an issue where release notes were not displayed when updating to a new version.

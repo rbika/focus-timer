@@ -39,7 +39,7 @@ export function UpToDateView() {
         <p className="mt-2 text-[13px] leading-5 text-neutral-700 dark:text-neutral-300">
           {appName} {version} is currently the newest version available.
         </p>
-        <div className="mt-auto flex justify-end">
+        <div className="-mx-2 mt-auto flex justify-end">
           <Button
             className="h-7 w-full rounded-full bg-[#007aff] px-4 py-2 text-sm hover:bg-[#006ee6] dark:bg-[#0a84ff] dark:text-white"
             onClick={() => void getCurrentWebviewWindow().hide()}
