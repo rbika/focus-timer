@@ -57,6 +57,19 @@ jobs:
       - name: Lint Rust
         run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml -- -D warnings
 
+      - name: Read release notes from CHANGELOG
+        id: changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="${RUNNER_TEMP}/release-notes.md"
+          bash .github/scripts/extract-changelog.sh "$version" "$notes_file"
+          delimiter="$(openssl rand -hex 16)"
+          {
+            echo "body<<${delimiter}"
+            cat "$notes_file"
+            echo "${delimiter}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build app and create draft release
         uses: tauri-apps/tauri-action@v1.0.0
         env:
@@ -65,7 +78,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Focus Timer ${{ github.ref_name }}
-          generateReleaseNotes: true
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
