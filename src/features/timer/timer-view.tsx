@@ -227,7 +227,7 @@ export function TimerView() {
           <div className="flex h-full w-full flex-col items-center justify-between gap-3">
             <div
               className={cn(
-                'flex h-7 w-full items-center justify-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-50',
+                'flex h-7 w-full items-center justify-center gap-1.5 text-sm font-medium text-neutral-900 transition-opacity duration-200 dark:text-neutral-50',
                 isPaused && 'opacity-60',
               )}
               aria-label={isStopwatch ? 'Stopwatch mode' : 'Timer mode'}
@@ -245,41 +245,48 @@ export function TimerView() {
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex w-full flex-col items-center gap-1">
               <time
                 dateTime={`PT${isStopwatch ? snapshot.elapsedSecs : snapshot.remainingSecs}S`}
                 aria-live="polite"
                 aria-atomic="true"
-                className="text-4xl font-light tracking-tight text-neutral-900 tabular-nums dark:text-neutral-50"
+                className={cn(
+                  'text-4xl font-light tracking-tight text-neutral-900 tabular-nums transition-opacity duration-200 dark:text-neutral-50',
+                  isPaused && 'opacity-60',
+                )}
               >
                 {snapshot.formatted}
               </time>
 
               <div
-                className={`mb-4 flex w-full flex-col items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 ${isPaused ? 'opacity-60' : ''}`}
+                className={cn(
+                  'mb-4 flex w-full flex-col items-center gap-3 text-xs text-neutral-500 transition-opacity duration-200 dark:text-neutral-400',
+                  isPaused && 'opacity-60',
+                )}
                 aria-live="polite"
               >
                 {isStopwatch ? (
                   <span>No end time</span>
                 ) : (
                   <>
-                    <div className="flex items-center gap-1.5">
-                      <span>{secsToCompact(snapshot.durationSecs)}</span>
-                      <span>•</span>
-                      <span>Ends {endsAt}</span>
-                    </div>
-                    <div
-                      role="progressbar"
-                      aria-label="Time remaining"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={Math.round(remainingPercent)}
-                      className="h-1 w-full overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700"
-                    >
+                    <div className="mt-1 flex w-[80%] items-center gap-1.5">
+                      <span className="w-20 text-right">{endsAt}</span>
                       <div
-                        className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-linear dark:bg-neutral-50"
-                        style={{ width: `${remainingPercent}%` }}
-                      />
+                        role="progressbar"
+                        aria-label="Time remaining"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={Math.round(remainingPercent)}
+                        className="h-1 w-full overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700"
+                      >
+                        <div
+                          className="h-full rounded-full bg-neutral-900 transition-[width] duration-1000 ease-linear dark:bg-neutral-50"
+                          style={{ width: `${remainingPercent}%` }}
+                        />
+                      </div>
+                      <span className="w-20 text-left">
+                        {secsToCompact(snapshot.durationSecs)}
+                      </span>
                     </div>
                   </>
                 )}
@@ -316,9 +323,9 @@ export function TimerView() {
               <ModeSwitch mode={snapshot.mode} onChange={handleModeChange} />
 
               {isStopwatch ? (
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-                  Free Mode
-                </p>
+                <div className="mb-[35px] text-4xl font-light tracking-tight text-neutral-900 tabular-nums opacity-60 dark:text-neutral-50">
+                  00:00:00
+                </div>
               ) : (
                 <div className="flex w-full flex-col gap-1.5">
                   <DurationInput
@@ -337,7 +344,7 @@ export function TimerView() {
                   />
 
                   {configuredPresets.length > 0 ? (
-                    <div className="flex w-full flex-col gap-1.5">
+                    <div className="flex w-full justify-center gap-1.5">
                       <div className="flex min-w-0 gap-1.5">
                         {configuredPresets.map(({ index, secs }) => (
                           <button
@@ -345,7 +352,7 @@ export function TimerView() {
                             type="button"
                             onClick={() => applyPreset(secs)}
                             aria-label={`Use preset ${secsToCompact(secs)}`}
-                            className="h-6 min-w-0 flex-1 rounded border border-neutral-300 px-2 text-xs text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
+                            className="h-5 min-w-0 rounded px-2 text-xs text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700/70"
                           >
                             {secsToCompact(secs)}
                           </button>
