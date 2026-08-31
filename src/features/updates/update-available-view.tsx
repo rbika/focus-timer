@@ -5,13 +5,9 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { formatUpdateStatus } from '@/features/updates/format-update-status'
+import { ReleaseNotes } from '@/features/updates/release-notes'
 import { api, onUpdateStatus, type UpdateStatus } from '@/lib/tauri'
 import appIcon from '../../../src-tauri/icons/128x128.png'
-
-function notesText(notes?: string | null): string {
-  const trimmed = notes?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : 'No release notes provided.'
-}
 
 export function UpdateAvailableView() {
   const [appName, setAppName] = useState('Focus Timer')
@@ -104,11 +100,7 @@ export function UpdateAvailableView() {
             {progress}
           </p>
         ) : (
-          <>
-            <p className="max-h-24 overflow-y-auto text-[13px] leading-5 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
-              {notesText(notes)}
-            </p>
-          </>
+          <ReleaseNotes content={notes} />
         )}
         <div className="mt-auto flex justify-end gap-2">
           {error ? (
