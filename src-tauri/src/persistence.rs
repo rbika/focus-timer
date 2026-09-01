@@ -16,7 +16,7 @@ fn default_completion_sound() -> String {
 }
 
 fn default_presets() -> [Option<u64>; 3] {
-    [None, None, None]
+    [Some(30 * 60), Some(60 * 60), Some(2 * 60 * 60)]
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -256,7 +256,7 @@ mod tests {
         assert!(!s.icon_only);
         assert_eq!(s.completion_sound, "Door Bell");
         assert!(s.auto_check_for_updates);
-        assert_eq!(s.presets, [None, None, None]);
+        assert_eq!(s.presets, [Some(1800), Some(3600), Some(7200)]);
     }
 
     #[test]
@@ -330,7 +330,7 @@ mod tests {
             }
         }"#;
         let state: PersistedState = serde_json::from_str(json).unwrap();
-        assert_eq!(state.settings.presets, [None, None, None]);
+        assert_eq!(state.settings.presets, [Some(1800), Some(3600), Some(7200)]);
     }
 
     #[test]
