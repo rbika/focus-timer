@@ -5,6 +5,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { SettingsView } from '@/features/settings/settings-view'
 import { TimerView } from '@/features/timer/timer-view'
 import { UpdateAvailableView } from '@/features/updates/update-available-view'
+import { UpdateProgressView } from '@/features/updates/update-progress-view'
 import { UpToDateView } from '@/features/updates/up-to-date-view'
 import { subscribeToBackend } from '@/store/timer-store'
 
@@ -37,6 +38,14 @@ export default function App() {
     return (
       <div className="h-full bg-[canvas]">
         <UpdateAvailableView />
+      </div>
+    )
+  }
+
+  if (label === 'update-progress') {
+    return (
+      <div className="h-full bg-[canvas]">
+        <UpdateProgressView />
       </div>
     )
   }

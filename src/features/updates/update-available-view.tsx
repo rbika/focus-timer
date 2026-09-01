@@ -4,7 +4,6 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 import { Button } from '@/components/ui/button'
 import { WindowTitleBar } from '@/components/window-title-bar'
-import { formatUpdateStatus } from '@/features/updates/format-update-status'
 import { ReleaseNotes } from '@/features/updates/release-notes'
 import { api, onUpdateStatus, type UpdateStatus } from '@/lib/tauri'
 import appIcon from '../../../src-tauri/icons/128x128.png'
@@ -33,6 +32,8 @@ export function UpdateAvailableView() {
 
   useEffect(() => {
     if (
+      status.kind === 'downloading' ||
+      status.kind === 'installing' ||
       status.kind === 'readyToRestart' ||
       status.kind === 'cancelled' ||
       status.kind === 'upToDate'
@@ -55,10 +56,6 @@ export function UpdateAvailableView() {
 
   const latestVersion = status.kind === 'available' ? status.version : null
   const notes = status.kind === 'available' ? status.notes : null
-  const progress =
-    status.kind === 'downloading' || status.kind === 'installing'
-      ? formatUpdateStatus(status)
-      : null
   const error =
     status.kind === 'error' ? 'Update failed. Please try again later.' : null
 
@@ -95,10 +92,6 @@ export function UpdateAvailableView() {
           <p className="text-[13px] leading-5 text-neutral-700 dark:text-neutral-300">
             {error}
           </p>
-        ) : progress ? (
-          <p className="text-[13px] leading-5 text-neutral-700 dark:text-neutral-300">
-            {progress}
-          </p>
         ) : (
           <ReleaseNotes content={notes} />
         )}
@@ -115,14 +108,14 @@ export function UpdateAvailableView() {
               <Button
                 variant="secondary"
                 className="h-7 rounded-full px-4 py-2 text-sm"
-                disabled={busy || !!progress}
+                disabled={busy}
                 onClick={() => void api.dismissAvailableUpdate()}
               >
                 Remind me later
               </Button>
               <Button
                 className="h-7 rounded-full bg-[#007aff] px-4 py-2 text-sm hover:bg-[#006ee6] dark:bg-[#0a84ff] dark:text-white"
-                disabled={busy || !!progress}
+                disabled={busy}
                 onClick={() => {
                   setBusy(true)
                   void api.installAvailableUpdate().finally(() => {

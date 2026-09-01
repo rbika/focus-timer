@@ -74,6 +74,22 @@
         "maximizable": false,
         "skipTaskbar": true,
         "center": true
+      },
+      {
+        "label": "update-progress",
+        "title": "Focus Timer",
+        "width": 400,
+        "height": 148,
+        "resizable": false,
+        "fullscreen": false,
+        "visible": false,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "minimizable": false,
+        "maximizable": false,
+        "skipTaskbar": true,
+        "center": true
       }
     ],
     "security": {

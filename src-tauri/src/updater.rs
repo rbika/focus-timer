@@ -2,7 +2,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 use crate::app_state::AppState;
@@ -11,6 +10,13 @@ pub const AUTO_CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const STATUS_EVENT: &str = "update-status";
 const NOTES_PREVIEW_CHARS: usize = 400;
 const UPDATE_AVAILABLE_WINDOW: &str = "update-available";
+const UPDATE_PROGRESS_WINDOW: &str = "update-progress";
+
+#[derive(Debug, Clone)]
+pub struct PendingUpdate {
+    pub version: String,
+    pub notes: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -156,7 +162,19 @@ pub async fn install_available_update(app: AppHandle) -> Result<UpdateStatus, St
     }
 
     let expected_version = match current_status(&app) {
-        UpdateStatus::Available { version, .. } => version,
+        UpdateStatus::Available { version, notes } => {
+            {
+                let state = app.state::<AppState>();
+                *state
+                    .pending_update
+                    .lock()
+                    .expect("pending update lock") = Some(PendingUpdate {
+                    version: version.clone(),
+                    notes: notes.clone(),
+                });
+            }
+            version
+        }
         other => {
             state
                 .update_in_flight
@@ -205,6 +223,16 @@ async fn install_available_update_inner(
 
     let installed_version = update.version.clone();
 
+    hide_update_available_window(&app);
+    show_update_progress_window(&app);
+    set_status(
+        &app,
+        UpdateStatus::Downloading {
+            downloaded: 0,
+            total: None,
+        },
+    );
+
     let mut downloaded: u64 = 0;
     let mut total: Option<u64> = None;
     let download_result = update
@@ -223,6 +251,8 @@ async fn install_available_update_inner(
         .await;
 
     if let Err(err) = download_result {
+        hide_update_progress_window(&app);
+        show_update_available_window(&app);
         return finish_error(&app, err.to_string(), true);
     }
 
@@ -230,22 +260,28 @@ async fn install_available_update_inner(
         version: installed_version.clone(),
     };
     set_status(&app, status.clone());
-    hide_update_available_window(&app);
-
-    let restart_message = format!(
-        "Version {installed_version} was installed.\n\nRestart Focus Timer now to finish updating?"
-    );
-    if ask_dialog(
-        &app,
-        "Restart to Update",
-        &restart_message,
-        "Restart",
-        "Later",
-    ) {
-        app.restart();
-    }
+    show_update_progress_window(&app);
 
     Ok(status)
+}
+
+pub fn cancel_update_download(app: &AppHandle) {
+    restore_available_update(app);
+    hide_update_progress_window(app);
+    show_update_available_window(app);
+}
+
+pub fn dismiss_update_progress(app: &AppHandle) {
+    let status = current_status(app);
+    hide_update_progress_window(app);
+    if matches!(status, UpdateStatus::Error { .. }) {
+        restore_available_update(app);
+        show_update_available_window(app);
+    }
+}
+
+pub fn restart_for_update(app: &AppHandle) {
+    app.restart();
 }
 
 pub fn dismiss_available_update(app: &AppHandle) {
@@ -268,6 +304,8 @@ fn finish_error(app: &AppHandle, message: String, manual: bool) -> Result<Update
     };
     set_status(app, status.clone());
     if manual {
+        hide_update_progress_window(app);
+        show_update_available_window(app);
         Err(message)
     } else {
         Ok(status)
@@ -291,18 +329,6 @@ fn set_status(app: &AppHandle, status: UpdateStatus) {
     let _ = app.emit(STATUS_EVENT, &status);
 }
 
-fn ask_dialog(app: &AppHandle, title: &str, message: &str, ok: &str, cancel: &str) -> bool {
-    app.dialog()
-        .message(message)
-        .title(title)
-        .kind(MessageDialogKind::Info)
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            ok.to_string(),
-            cancel.to_string(),
-        ))
-        .blocking_show()
-}
-
 fn show_up_to_date_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("up-to-date") {
         let _ = window.show();
@@ -320,6 +346,37 @@ fn show_update_available_window(app: &AppHandle) {
 fn hide_update_available_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(UPDATE_AVAILABLE_WINDOW) {
         let _ = window.hide();
+    }
+}
+
+fn show_update_progress_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(UPDATE_PROGRESS_WINDOW) {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn hide_update_progress_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(UPDATE_PROGRESS_WINDOW) {
+        let _ = window.hide();
+    }
+}
+
+fn restore_available_update(app: &AppHandle) {
+    let pending = app
+        .state::<AppState>()
+        .pending_update
+        .lock()
+        .expect("pending update lock")
+        .clone();
+    if let Some(pending) = pending {
+        set_status(
+            app,
+            UpdateStatus::Available {
+                version: pending.version,
+                notes: pending.notes,
+            },
+        );
     }
 }
 

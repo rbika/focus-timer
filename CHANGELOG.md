@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## v1.7.0
 
-### New
+### Improved
 
 - Improved release notes with better Markdown formatting.
+- Improved the app update experience and interface.
 
 ### Bug fixes
 

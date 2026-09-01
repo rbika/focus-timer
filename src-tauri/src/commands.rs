@@ -309,6 +309,21 @@ pub fn dismiss_available_update(app: AppHandle) {
     crate::updater::dismiss_available_update(&app);
 }
 
+#[tauri::command]
+pub fn cancel_update_download(app: AppHandle) {
+    crate::updater::cancel_update_download(&app);
+}
+
+#[tauri::command]
+pub fn dismiss_update_progress(app: AppHandle) {
+    crate::updater::dismiss_update_progress(&app);
+}
+
+#[tauri::command]
+pub fn restart_for_update(app: AppHandle) {
+    crate::updater::restart_for_update(&app);
+}
+
 fn after_control(app: &AppHandle) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
     state.persist()?;

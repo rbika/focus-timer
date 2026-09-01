@@ -2,7 +2,13 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Focus Timer windows",
-  "windows": ["main", "settings", "up-to-date", "update-available"],
+  "windows": [
+    "main",
+    "settings",
+    "up-to-date",
+    "update-available",
+    "update-progress"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-show",

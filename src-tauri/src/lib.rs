@@ -54,6 +54,9 @@ pub fn run() {
             commands::get_update_status,
             commands::install_available_update,
             commands::dismiss_available_update,
+            commands::cancel_update_download,
+            commands::dismiss_update_progress,
+            commands::restart_for_update,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

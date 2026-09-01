@@ -67,6 +67,9 @@ export const api = {
   getUpdateStatus: () => invoke<UpdateStatus>('get_update_status'),
   installAvailableUpdate: () => invoke<UpdateStatus>('install_available_update'),
   dismissAvailableUpdate: () => invoke<void>('dismiss_available_update'),
+  cancelUpdateDownload: () => invoke<void>('cancel_update_download'),
+  dismissUpdateProgress: () => invoke<void>('dismiss_update_progress'),
+  restartForUpdate: () => invoke<void>('restart_for_update'),
   getAppName: () => getName(),
   getAppVersion: () => getVersion(),
 }
