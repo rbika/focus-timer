@@ -1,43 +1,26 @@
-import { useState } from 'react'
-
 type Props = {
   remainingSecs: number
   durationSecs: number
+  running: boolean
 }
 
 /**
- * Ticks are only emitted while the window is visible, so the first snapshot
- * after it reopens can jump by minutes. Animating that jump makes the bar
- * crawl to its real position, so only contiguous one-second steps animate;
- * everything else snaps.
+ * The engine reports whole seconds (`60` stays `60` until it has fully
+ * elapsed), so anything driven off the tick alone trails real time by a
+ * second. Instead each snapshot re-anchors a CSS animation that drains the
+ * bar over the seconds it still has, so it moves the instant the timer
+ * starts, keeps running between ticks, and reaches empty at the deadline.
  */
-export function TimerProgress({ remainingSecs, durationSecs }: Props) {
-  const [shown, setShown] = useState({
-    remainingSecs,
-    durationSecs,
-    animate: false,
-  })
-
-  if (
-    shown.remainingSecs !== remainingSecs ||
-    shown.durationSecs !== durationSecs
-  ) {
-    setShown({
-      remainingSecs,
-      durationSecs,
-      animate:
-        shown.durationSecs === durationSecs &&
-        shown.remainingSecs - remainingSecs === 1,
-    })
-  }
-
+export function TimerProgress({
+  remainingSecs,
+  durationSecs,
+  running,
+}: Props) {
   const percent =
-    shown.durationSecs > 0
-      ? Math.min(
-          100,
-          Math.max(0, (shown.remainingSecs / shown.durationSecs) * 100),
-        )
+    durationSecs > 0
+      ? Math.min(100, Math.max(0, (remainingSecs / durationSecs) * 100))
       : 0
+  const draining = running && remainingSecs > 0 && durationSecs > 0
 
   return (
     <div
@@ -49,10 +32,14 @@ export function TimerProgress({ remainingSecs, durationSecs }: Props) {
       className="h-1 w-full overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700"
     >
       <div
-        className="h-full rounded-full bg-neutral-900 transition-[width] ease-linear dark:bg-neutral-50"
+        // Remounting restarts the animation from the fresh snapshot.
+        key={draining ? `${durationSecs}:${remainingSecs}` : 'idle'}
+        className="h-full origin-left rounded-full bg-neutral-900 dark:bg-neutral-50"
         style={{
           width: `${percent}%`,
-          transitionDuration: shown.animate ? '1000ms' : '0ms',
+          animation: draining
+            ? `timer-drain ${remainingSecs}s linear forwards`
+            : undefined,
         }}
       />
     </div>

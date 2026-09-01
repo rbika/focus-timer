@@ -268,6 +268,7 @@ export function TimerView() {
                       <TimerProgress
                         remainingSecs={snapshot.remainingSecs}
                         durationSecs={snapshot.durationSecs}
+                        running={isRunning}
                       />
                       <span className="w-20 text-left">
                         {secsToCompact(snapshot.durationSecs)}
