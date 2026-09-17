@@ -35,6 +35,20 @@ export interface Settings {
 /** Sentinel for disabling the completion sound (first option in the select). */
 export const NO_COMPLETION_SOUND = 'None'
 
+export interface Totals {
+  today: number
+  thisWeek: number
+  thisMonth: number
+}
+
+export interface Entry {
+  id: string
+  mode: TimerMode
+  startedAtUnix: number
+  endedAtUnix: number
+  durationSecs: number
+}
+
 export type UpdateStatus =
   | { kind: 'idle' }
   | { kind: 'checking'; manual: boolean }
@@ -48,6 +62,7 @@ export type UpdateStatus =
 
 export const api = {
   getSnapshot: () => invoke<TimerSnapshot>('get_snapshot'),
+  getTotals: () => invoke<Totals>('get_totals'),
   getSettings: () => invoke<Settings>('get_settings'),
   updateSettings: (settings: Settings) =>
     invoke<Settings>('update_settings', { settings }),
@@ -96,6 +111,12 @@ export function onSettingsChanged(
   handler: (settings: Settings) => void,
 ): Promise<UnlistenFn> {
   return listen<Settings>('settings-changed', (event) => handler(event.payload))
+}
+
+export function onEntryRecorded(
+  handler: (entry: Entry) => void,
+): Promise<UnlistenFn> {
+  return listen<Entry>('entry-recorded', (event) => handler(event.payload))
 }
 
 export function onUpdateStatus(

@@ -20,9 +20,6 @@ pub struct Entry {
     pub duration_secs: u64,
 }
 
-// `Totals`, `compute_totals`, `to_local`, and `EntriesStore::totals` are not
-// yet wired to a Tauri command — that lands with the Dashboard tab.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Totals {
@@ -53,7 +50,6 @@ pub fn entry_from_interval(interval: FinishedInterval) -> Option<Entry> {
     })
 }
 
-#[allow(dead_code)]
 fn to_local(unix_secs: u64) -> DateTime<Local> {
     Local
         .timestamp_opt(unix_secs as i64, 0)
@@ -65,7 +61,6 @@ fn to_local(unix_secs: u64) -> DateTime<Local> {
 /// by each Entry's start time using local-timezone calendar boundaries
 /// (day is midnight-to-midnight, week starts Monday, month is calendar
 /// month), for the given instant.
-#[allow(dead_code)]
 pub fn compute_totals(entries: &[Entry], now: SystemTime) -> Totals {
     let now_unix = now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     let now_local = to_local(now_unix).naive_local();
@@ -120,7 +115,6 @@ impl EntriesStore {
         self.write_all(&entries)
     }
 
-    #[allow(dead_code)]
     pub fn totals(&self, now: SystemTime) -> Totals {
         compute_totals(&self.load_all(), now)
     }

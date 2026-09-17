@@ -33,6 +33,15 @@ pub fn get_snapshot(app: AppHandle) -> TimerSnapshot {
 }
 
 #[tauri::command]
+pub fn get_totals(app: AppHandle) -> crate::entries::Totals {
+    app.state::<AppState>()
+        .entries
+        .lock()
+        .expect("entries lock")
+        .totals(SystemTime::now())
+}
+
+#[tauri::command]
 pub fn get_settings(app: AppHandle) -> Settings {
     app.state::<AppState>()
         .settings
