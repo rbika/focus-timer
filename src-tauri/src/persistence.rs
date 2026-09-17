@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -196,10 +195,6 @@ impl Persistence {
         main_window_position: Option<WindowPosition>,
         updater: &UpdaterMeta,
     ) -> Result<(), String> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-
         let deadline_unix = engine.deadline().and_then(|deadline| {
             deadline
                 .duration_since(UNIX_EPOCH)
@@ -229,14 +224,7 @@ impl Persistence {
         };
 
         let json = serde_json::to_vec_pretty(&state).map_err(|e| e.to_string())?;
-        let tmp = self.path.with_extension("json.tmp");
-        {
-            let mut file = fs::File::create(&tmp).map_err(|e| e.to_string())?;
-            file.write_all(&json).map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
-        }
-        fs::rename(&tmp, &self.path).map_err(|e| e.to_string())?;
-        Ok(())
+        crate::atomic_file::write_json(&self.path, &json)
     }
 }
 

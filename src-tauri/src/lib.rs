@@ -1,4 +1,5 @@
 mod app_state;
+mod atomic_file;
 mod commands;
 mod entries;
 mod notification;
@@ -8,6 +9,7 @@ mod sound;
 mod timer;
 mod tray;
 mod updater;
+mod window;
 
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -58,6 +60,7 @@ pub fn run() {
             commands::cancel_update_download,
             commands::dismiss_update_progress,
             commands::restart_for_update,
+            window::resize_main_window,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

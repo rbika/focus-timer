@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Hourglass, Pause, Play, Timer, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { WindowTitleBar } from '@/components/window-title-bar'
 import { DurationInput } from '@/features/timer/duration-input'
 import { ModeSwitch } from '@/features/timer/mode-switch'
 import { TimerProgress } from '@/features/timer/timer-progress'
@@ -215,7 +214,6 @@ export function TimerView() {
 
   return (
     <div className="flex h-full flex-col">
-      <WindowTitleBar title="" onOpenSettings={() => void api.openSettings()} />
       <main className="flex flex-1 flex-col items-center justify-between gap-2 px-4 pt-1 pb-4">
         {isActive ? (
           <div className="flex h-full w-full flex-col items-center justify-between gap-3">

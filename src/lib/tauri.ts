@@ -19,6 +19,8 @@ export interface TimerSnapshot {
 
 export type Presets = [number | null, number | null, number | null]
 
+export type MainView = 'timer' | 'stats'
+
 export interface Settings {
   hideWindowOnStart: boolean
   pauseOnSleep: boolean
@@ -59,6 +61,8 @@ export const api = {
   reset: () => invoke<TimerSnapshot>('reset'),
   showTimerWindow: () => invoke<void>('show_timer_window'),
   hideTimerWindow: () => invoke<void>('hide_timer_window'),
+  resizeMainWindow: (view: MainView) =>
+    invoke<void>('resize_main_window', { view }),
   openSettings: () => invoke<void>('open_settings'),
   getCompletionSounds: () => invoke<string[]>('get_completion_sounds'),
   previewSound: (name: string) => invoke<void>('preview_sound', { name }),

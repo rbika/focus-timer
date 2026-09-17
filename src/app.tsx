@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 
+import { MainWindow } from '@/features/main-window/main-window'
 import { SettingsView } from '@/features/settings/settings-view'
-import { TimerView } from '@/features/timer/timer-view'
 import { UpdateAvailableView } from '@/features/updates/update-available-view'
 import { UpdateProgressView } from '@/features/updates/update-progress-view'
 import { UpToDateView } from '@/features/updates/up-to-date-view'
@@ -52,7 +52,7 @@ export default function App() {
 
   return (
     <div className="h-full bg-[canvas]">
-      <TimerView />
+      <MainWindow />
     </div>
   )
 }

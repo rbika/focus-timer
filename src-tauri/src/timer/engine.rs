@@ -249,6 +249,14 @@ impl TimerEngine {
     /// `started_at`/`elapsed_at_pause` (stopwatch mode) anchors — both of
     /// which stay frozen at their pre-run values for the duration of the
     /// run, so no extra state is needed to recover it.
+    ///
+    /// Exception: a Timer restored mid-run by `restore_running` (app
+    /// restart while Running) re-derives `remaining_at_pause` from the
+    /// post-restart remaining time, not the pre-run value, so this
+    /// resolves to the restart instant rather than the original Start —
+    /// the pre-restart portion of that run is not represented in the
+    /// eventual Entry. `state.json` doesn't persist the original pre-run
+    /// remaining separately, so this is the best available approximation.
     fn current_interval_start(&self) -> Option<SystemTime> {
         if self.status != TimerStatus::Running {
             return None;
