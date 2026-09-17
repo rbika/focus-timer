@@ -2,6 +2,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use crate::entries::EntriesStore;
 use crate::persistence::{Persistence, Settings, UpdaterMeta, WindowPosition};
 use crate::timer::{TimerEngine, TimerSnapshot};
 use crate::updater::{PendingUpdate, UpdateStatus};
@@ -10,6 +11,7 @@ pub struct AppState {
     pub engine: Mutex<TimerEngine>,
     pub settings: Mutex<Settings>,
     pub persistence: Persistence,
+    pub entries: Mutex<EntriesStore>,
     pub main_window_position: Mutex<Option<WindowPosition>>,
     pub last_tray_title: Mutex<String>,
     pub ticks_since_persist: Mutex<u32>,
@@ -22,6 +24,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         persistence: Persistence,
+        entries: EntriesStore,
         settings: Settings,
         engine: TimerEngine,
         main_window_position: Option<WindowPosition>,
@@ -37,6 +40,7 @@ impl AppState {
             engine: Mutex::new(engine),
             settings: Mutex::new(settings),
             persistence,
+            entries: Mutex::new(entries),
             main_window_position: Mutex::new(main_window_position),
             last_tray_title: Mutex::new(title),
             ticks_since_persist: Mutex::new(0),

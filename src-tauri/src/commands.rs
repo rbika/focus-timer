@@ -5,7 +5,27 @@ use tauri_plugin_autostart::ManagerExt;
 
 use crate::app_state::AppState;
 use crate::persistence::Settings;
-use crate::timer::{TimerSnapshot, TimerMode, TimerStatus};
+use crate::timer::{FinishedInterval, TimerMode, TimerSnapshot, TimerStatus};
+
+/// If the engine just finalized a run, turn it into a persisted Entry
+/// (subject to the 10-second minimum) and notify any open Stats view.
+pub fn finalize_interval(app: &AppHandle, finished: Option<FinishedInterval>) {
+    let Some(interval) = finished else {
+        return;
+    };
+    let Some(entry) = crate::entries::entry_from_interval(interval) else {
+        return;
+    };
+    let state = app.state::<AppState>();
+    let appended = state
+        .entries
+        .lock()
+        .expect("entries lock")
+        .append(entry.clone());
+    if appended.is_ok() {
+        let _ = app.emit("entry-recorded", &entry);
+    }
+}
 
 #[tauri::command]
 pub fn get_snapshot(app: AppHandle) -> TimerSnapshot {
@@ -145,10 +165,11 @@ pub fn start(app: AppHandle) -> Result<TimerSnapshot, String> {
 #[tauri::command]
 pub fn pause(app: AppHandle) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
-    {
+    let finished = {
         let mut engine = state.engine.lock().expect("engine lock");
-        engine.pause(SystemTime::now());
-    }
+        engine.pause(SystemTime::now())
+    };
+    finalize_interval(&app, finished);
     after_control(&app)
 }
 
@@ -170,18 +191,20 @@ pub fn toggle_pause(app: AppHandle) -> Result<TimerSnapshot, String> {
         settings.hide_window_on_start
     };
 
-    let became_running = {
+    let (became_running, finished) = {
         let mut engine = state.engine.lock().expect("engine lock");
         let before = engine.status();
-        engine.toggle_pause(SystemTime::now());
-        matches!(
+        let finished = engine.toggle_pause(SystemTime::now());
+        let became_running = matches!(
             (before, engine.status()),
             (
                 TimerStatus::Idle | TimerStatus::Paused | TimerStatus::Completed,
                 TimerStatus::Running
             )
-        )
+        );
+        (became_running, finished)
     };
+    finalize_interval(&app, finished);
 
     state.persist()?;
     let snapshot = state.snapshot();
@@ -199,10 +222,11 @@ pub fn toggle_pause(app: AppHandle) -> Result<TimerSnapshot, String> {
 #[tauri::command]
 pub fn reset(app: AppHandle) -> Result<TimerSnapshot, String> {
     let state = app.state::<AppState>();
-    {
+    let finished = {
         let mut engine = state.engine.lock().expect("engine lock");
-        engine.reset();
-    }
+        engine.reset(SystemTime::now())
+    };
+    finalize_interval(&app, finished);
     after_control(&app)
 }
 
@@ -279,10 +303,11 @@ pub fn preview_sound(app: AppHandle, name: String) {
 pub fn quit_app(app: AppHandle) {
     crate::tray::save_main_window_position(&app);
     let state = app.state::<AppState>();
-    {
+    let finished = {
         let mut engine = state.engine.lock().expect("engine lock");
-        engine.pause(SystemTime::now());
-    }
+        engine.pause(SystemTime::now())
+    };
+    finalize_interval(&app, finished);
     let _ = state.persist();
     app.exit(0);
 }

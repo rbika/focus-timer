@@ -18,6 +18,15 @@ pub enum TimerStatus {
     Completed,
 }
 
+/// A contiguous stretch of running time that just ended (pause, cancel, or
+/// natural completion), ready to be turned into a persisted Entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FinishedInterval {
+    pub mode: TimerMode,
+    pub started_at: SystemTime,
+    pub ended_at: SystemTime,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerEngine {
@@ -65,6 +74,18 @@ impl TimerEngine {
 
     pub fn deadline(&self) -> Option<SystemTime> {
         self.deadline
+    }
+
+    /// The interval currently in progress, if the engine is Running — for
+    /// callers that must finalize a run through a path other than
+    /// `pause`/`reset`/`tick` (e.g. an auto-pause triggered by system
+    /// sleep). Does not mutate engine state.
+    pub fn interval_in_progress(&self, ended_at: SystemTime) -> Option<FinishedInterval> {
+        self.current_interval_start().map(|started_at| FinishedInterval {
+            mode: self.mode,
+            started_at,
+            ended_at,
+        })
     }
 
     pub fn started_at(&self) -> Option<SystemTime> {
@@ -207,13 +228,38 @@ impl TimerEngine {
         self.status = TimerStatus::Running;
     }
 
-    pub fn pause(&mut self, now: SystemTime) {
+    pub fn pause(&mut self, now: SystemTime) -> Option<FinishedInterval> {
         if self.status != TimerStatus::Running {
-            return;
+            return None;
         }
+        let started_at = self.current_interval_start();
         match self.mode {
             TimerMode::Timer => self.pause_timer(now),
             TimerMode::Stopwatch => self.pause_stopwatch(now),
+        }
+        started_at.map(|started_at| FinishedInterval {
+            mode: self.mode,
+            started_at,
+            ended_at: now,
+        })
+    }
+
+    /// The wall-clock instant the currently-running interval began, derived
+    /// from the existing `deadline`/`remaining_at_pause` (timer mode) or
+    /// `started_at`/`elapsed_at_pause` (stopwatch mode) anchors — both of
+    /// which stay frozen at their pre-run values for the duration of the
+    /// run, so no extra state is needed to recover it.
+    fn current_interval_start(&self) -> Option<SystemTime> {
+        if self.status != TimerStatus::Running {
+            return None;
+        }
+        match self.mode {
+            TimerMode::Timer => self
+                .deadline
+                .map(|deadline| deadline - Duration::from_secs(self.remaining_at_pause)),
+            TimerMode::Stopwatch => self
+                .started_at
+                .map(|started_at| started_at + Duration::from_secs(self.elapsed_at_pause)),
         }
     }
 
@@ -259,15 +305,30 @@ impl TimerEngine {
         self.status = TimerStatus::Running;
     }
 
-    pub fn toggle_pause(&mut self, now: SystemTime) {
+    pub fn toggle_pause(&mut self, now: SystemTime) -> Option<FinishedInterval> {
         match self.status {
             TimerStatus::Running => self.pause(now),
-            TimerStatus::Paused => self.resume(now),
-            TimerStatus::Idle | TimerStatus::Completed => self.start(now),
+            TimerStatus::Paused => {
+                self.resume(now);
+                None
+            }
+            TimerStatus::Idle | TimerStatus::Completed => {
+                self.start(now);
+                None
+            }
         }
     }
 
-    pub fn reset(&mut self) {
+    /// Resets to Idle. If a run was in progress, finalizes it into an Entry
+    /// first (a run already paused was finalized when it was paused, so
+    /// resetting from Paused doesn't produce a second Entry).
+    pub fn reset(&mut self, now: SystemTime) -> Option<FinishedInterval> {
+        let finished = self.current_interval_start().map(|started_at| FinishedInterval {
+            mode: self.mode,
+            started_at,
+            ended_at: now,
+        });
+
         self.deadline = None;
         self.started_at = None;
         self.status = TimerStatus::Idle;
@@ -279,24 +340,33 @@ impl TimerEngine {
                 self.elapsed_at_pause = 0;
             }
         }
+
+        finished
     }
 
-    /// Advance wall-clock state. Returns `true` if the timer just completed.
-    pub fn tick(&mut self, now: SystemTime) -> bool {
+    /// Advance wall-clock state. Returns the finished interval if the timer
+    /// just completed naturally.
+    pub fn tick(&mut self, now: SystemTime) -> Option<FinishedInterval> {
         if self.mode == TimerMode::Stopwatch {
-            return false;
+            return None;
         }
         if self.status != TimerStatus::Running {
-            return false;
+            return None;
         }
         let remaining = self.remaining_secs(now);
         if remaining == 0 {
+            let started_at = self.current_interval_start();
+            let ended_at = self.deadline.unwrap_or(now);
             self.deadline = None;
             self.remaining_at_pause = 0;
             self.status = TimerStatus::Completed;
-            return true;
+            return started_at.map(|started_at| FinishedInterval {
+                mode: self.mode,
+                started_at,
+                ended_at,
+            });
         }
-        false
+        None
     }
 
     /// Restore a previously running timer after process restart.
@@ -305,8 +375,8 @@ impl TimerEngine {
         self.deadline = Some(deadline);
         self.started_at = None;
         self.status = TimerStatus::Running;
-        if self.tick(now) {
-            // completed during downtime
+        if self.tick(now).is_some() {
+            // completed during downtime; not retroactively recorded as an Entry
         } else {
             self.remaining_at_pause = self.remaining_secs(now);
         }
@@ -420,13 +490,13 @@ mod tests {
 
     #[test]
     fn tick_completes_at_deadline() {
-        let mut engine = TimerEngine::new(5);
+        let mut engine = TimerEngine::new(20);
         let now = t0();
         engine.start(now);
-        assert!(!engine.tick(now + Duration::from_secs(4)));
-        assert!(engine.tick(now + Duration::from_secs(5)));
+        assert!(engine.tick(now + Duration::from_secs(19)).is_none());
+        assert!(engine.tick(now + Duration::from_secs(20)).is_some());
         assert_eq!(engine.status(), TimerStatus::Completed);
-        assert_eq!(engine.remaining_secs(now + Duration::from_secs(5)), 0);
+        assert_eq!(engine.remaining_secs(now + Duration::from_secs(20)), 0);
     }
 
     #[test]
@@ -434,7 +504,7 @@ mod tests {
         let mut engine = TimerEngine::new(90);
         engine.start(t0());
         engine.pause(t0() + Duration::from_secs(30));
-        engine.reset();
+        engine.reset(t0() + Duration::from_secs(30));
         assert_eq!(engine.status(), TimerStatus::Idle);
         assert_eq!(engine.remaining_secs(t0()), 90);
     }
@@ -515,7 +585,7 @@ mod tests {
         engine.set_mode(TimerMode::Stopwatch);
         let now = t0();
         engine.start(now);
-        assert!(!engine.tick(now + Duration::from_secs(3600)));
+        assert!(engine.tick(now + Duration::from_secs(3600)).is_none());
         assert_eq!(engine.status(), TimerStatus::Running);
     }
 
@@ -526,7 +596,7 @@ mod tests {
         let now = t0();
         engine.start(now);
         engine.pause(now + Duration::from_secs(30));
-        engine.reset();
+        engine.reset(now + Duration::from_secs(30));
         assert_eq!(engine.status(), TimerStatus::Idle);
         assert_eq!(engine.elapsed_secs(now), 0);
     }
@@ -547,5 +617,129 @@ mod tests {
         assert_eq!(engine.mode(), TimerMode::Stopwatch);
         assert_eq!(engine.status(), TimerStatus::Idle);
         assert_eq!(engine.elapsed_secs(t0()), 0);
+    }
+
+    #[test]
+    fn pause_finalizes_a_finished_interval() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        let finished = engine.pause(now + Duration::from_secs(30)).unwrap();
+        assert_eq!(finished.mode, TimerMode::Timer);
+        assert_eq!(finished.started_at, now);
+        assert_eq!(finished.ended_at, now + Duration::from_secs(30));
+    }
+
+    #[test]
+    fn pause_reports_a_finished_interval_even_for_a_short_tap() {
+        // The engine itself always reports the interval that just ended;
+        // discarding accidental sub-10-second taps is `entries`' job (see
+        // `entries::entry_from_interval`), not the engine's.
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        let finished = engine.pause(now + Duration::from_secs(3)).unwrap();
+        assert_eq!(finished.started_at, now);
+        assert_eq!(finished.ended_at, now + Duration::from_secs(3));
+    }
+
+    #[test]
+    fn entry_from_interval_withholds_and_finalizes_around_the_ten_second_rule() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+
+        engine.start(now);
+        let ten_seconds = engine.pause(now + Duration::from_secs(10)).unwrap();
+        assert!(crate::entries::entry_from_interval(ten_seconds).is_none());
+
+        engine.resume(now + Duration::from_secs(10));
+        let eleven_seconds = engine
+            .pause(now + Duration::from_secs(21))
+            .unwrap();
+        assert!(crate::entries::entry_from_interval(eleven_seconds).is_some());
+    }
+
+    #[test]
+    fn resume_starts_a_fresh_interval_not_extending_the_previous_one() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        let first = engine.pause(now + Duration::from_secs(20)).unwrap();
+        assert_eq!(first.started_at, now);
+        assert_eq!(first.ended_at, now + Duration::from_secs(20));
+
+        let resume_at = now + Duration::from_secs(100);
+        engine.resume(resume_at);
+        let second = engine.pause(resume_at + Duration::from_secs(15)).unwrap();
+        assert_eq!(second.started_at, resume_at);
+        assert_eq!(second.ended_at, resume_at + Duration::from_secs(15));
+    }
+
+    #[test]
+    fn cancel_while_running_finalizes_the_in_progress_interval() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        let finished = engine.reset(now + Duration::from_secs(40)).unwrap();
+        assert_eq!(finished.started_at, now);
+        assert_eq!(finished.ended_at, now + Duration::from_secs(40));
+        assert_eq!(engine.status(), TimerStatus::Idle);
+    }
+
+    #[test]
+    fn cancel_while_paused_does_not_produce_a_second_entry() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        engine.pause(now + Duration::from_secs(30));
+        assert!(engine.reset(now + Duration::from_secs(9_000)).is_none());
+    }
+
+    #[test]
+    fn cancel_while_idle_produces_no_entry() {
+        let mut engine = TimerEngine::new(120);
+        assert!(engine.reset(t0()).is_none());
+    }
+
+    #[test]
+    fn natural_completion_finalizes_the_interval_at_the_deadline() {
+        let mut engine = TimerEngine::new(20);
+        let now = t0();
+        engine.start(now);
+        let finished = engine.tick(now + Duration::from_secs(20)).unwrap();
+        assert_eq!(finished.mode, TimerMode::Timer);
+        assert_eq!(finished.started_at, now);
+        assert_eq!(finished.ended_at, now + Duration::from_secs(20));
+    }
+
+    #[test]
+    fn natural_completion_of_a_short_timer_still_reports_completed() {
+        // A very short Timer (<=10s) still transitions to Completed and
+        // reports its finished interval — sound/notification must still
+        // fire; only entry persistence withholds it (see `entries` tests).
+        let mut engine = TimerEngine::new(10);
+        let now = t0();
+        engine.start(now);
+        let finished = engine.tick(now + Duration::from_secs(10)).unwrap();
+        assert_eq!(engine.status(), TimerStatus::Completed);
+        assert!(crate::entries::entry_from_interval(finished).is_none());
+    }
+
+    #[test]
+    fn stopwatch_pause_finalizes_interval_from_actual_resume_time() {
+        let mut engine = TimerEngine::new(60);
+        engine.set_mode(TimerMode::Stopwatch);
+        let now = t0();
+        engine.start(now);
+        let first = engine.pause(now + Duration::from_secs(45)).unwrap();
+        assert_eq!(first.mode, TimerMode::Stopwatch);
+        assert_eq!(first.started_at, now);
+        assert_eq!(first.ended_at, now + Duration::from_secs(45));
+
+        let resume_at = now + Duration::from_secs(500);
+        engine.resume(resume_at);
+        let second = engine.pause(resume_at + Duration::from_secs(15)).unwrap();
+        assert_eq!(second.started_at, resume_at);
+        assert_eq!(second.ended_at, resume_at + Duration::from_secs(15));
     }
 }

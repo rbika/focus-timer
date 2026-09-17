@@ -147,7 +147,7 @@ impl Persistence {
                         let deadline = UNIX_EPOCH + Duration::from_secs(deadline_unix);
                         engine.restore_running(deadline, now);
                     } else {
-                        engine.reset();
+                        engine.reset(now);
                     }
                 }
                 TimerStatus::Paused => {
@@ -157,7 +157,7 @@ impl Persistence {
                     engine.restore_completed();
                 }
                 TimerStatus::Idle => {
-                    engine.reset();
+                    engine.reset(now);
                 }
             },
             TimerMode::Stopwatch => match state.timer.status {
@@ -167,7 +167,7 @@ impl Persistence {
                         engine.restore_stopwatch_running(started_at, now);
                     } else {
                         engine.set_mode(TimerMode::Stopwatch);
-                        engine.reset();
+                        engine.reset(now);
                     }
                 }
                 TimerStatus::Paused => {
@@ -176,7 +176,7 @@ impl Persistence {
                 }
                 TimerStatus::Idle | TimerStatus::Completed => {
                     engine.set_mode(TimerMode::Stopwatch);
-                    engine.reset();
+                    engine.reset(now);
                 }
             },
         }

@@ -21,20 +21,26 @@ impl SleepDetector {
         self.last_remaining = remaining;
     }
 
-    /// Returns `Some(remaining_before_sleep)` when a sleep gap is detected.
-    pub fn poll_sleep(&mut self) -> Option<u64> {
+    /// Returns `Some((remaining_before_sleep, sleep_onset))` when a sleep
+    /// gap is detected. `sleep_onset` is the last wall-clock reading before
+    /// the gap — the best available approximation of when the run actually
+    /// stopped being observed.
+    pub fn poll_sleep(&mut self) -> Option<(u64, SystemTime)> {
         let now_mono = Instant::now();
         let now_wall = SystemTime::now();
 
         let mono_delta = now_mono.saturating_duration_since(self.last_mono);
         let wall_delta = now_wall.duration_since(self.last_wall).unwrap_or_default();
 
+        let remaining_before_sleep = self.last_remaining;
+        let sleep_onset = self.last_wall;
+
         self.last_mono = now_mono;
         self.last_wall = now_wall;
 
         // Wall clock jumped ahead of monotonic time → system slept.
         if wall_delta > mono_delta + Duration::from_secs(2) {
-            Some(self.last_remaining)
+            Some((remaining_before_sleep, sleep_onset))
         } else {
             None
         }

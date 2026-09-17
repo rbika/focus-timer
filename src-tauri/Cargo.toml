@@ -31,6 +31,8 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
 
 [profile.release]
 panic = "abort"

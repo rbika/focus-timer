@@ -1,5 +1,6 @@
 mod app_state;
 mod commands;
+mod entries;
 mod notification;
 mod persistence;
 mod sleep;
@@ -66,10 +67,12 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| PathBuf::from(".").join("focus-timer-data"));
-            let persistence = Persistence::new(data_dir);
+            let persistence = Persistence::new(data_dir.clone());
+            let entries = entries::EntriesStore::new(data_dir);
             let (settings, engine, main_window_position, updater_meta) = persistence.load();
             let state = AppState::new(
                 persistence,
+                entries,
                 settings,
                 engine,
                 main_window_position,
@@ -142,12 +145,14 @@ fn start_tick_loop(app: tauri::AppHandle) {
 
             let state = app.state::<AppState>();
 
-            if let Some(remaining_before_sleep) = detector.poll_sleep() {
+            if let Some((remaining_before_sleep, sleep_onset)) = detector.poll_sleep() {
                 let pause_on_sleep = state.settings.lock().expect("settings").pause_on_sleep;
                 let mut engine = state.engine.lock().expect("engine");
                 if pause_on_sleep && engine.status() == TimerStatus::Running {
+                    let finished = engine.interval_in_progress(sleep_onset);
                     engine.restore_paused(remaining_before_sleep);
                     drop(engine);
+                    commands::finalize_interval(&app, finished);
                     let _ = state.persist();
                     let snapshot = state.snapshot();
                     tray::update_tray_title(&app, &snapshot.formatted);
@@ -158,10 +163,12 @@ fn start_tick_loop(app: tauri::AppHandle) {
                 }
             }
 
-            let completed = {
+            let finished_interval = {
                 let mut engine = state.engine.lock().expect("engine");
                 engine.tick(SystemTime::now())
             };
+            let completed = finished_interval.is_some();
+            commands::finalize_interval(&app, finished_interval);
 
             let snapshot = state.snapshot();
             detector.note_remaining(snapshot.remaining_secs);
