@@ -42,6 +42,15 @@ pub fn get_totals(app: AppHandle) -> crate::entries::Totals {
 }
 
 #[tauri::command]
+pub fn get_entries(app: AppHandle) -> Vec<crate::entries::Entry> {
+    app.state::<AppState>()
+        .entries
+        .lock()
+        .expect("entries lock")
+        .load_all_newest_first()
+}
+
+#[tauri::command]
 pub fn get_settings(app: AppHandle) -> Settings {
     app.state::<AppState>()
         .settings

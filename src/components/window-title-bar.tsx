@@ -32,9 +32,11 @@ export function WindowTitleBar({
           type="button"
           variant="ghost"
           onClick={navigation.onClick}
-          aria-label={navigation.direction === 'stats' ? 'Open stats' : 'Back to timer'}
+          aria-label={
+            navigation.direction === 'stats' ? 'Open stats' : 'Back to timer'
+          }
           title={navigation.direction === 'stats' ? 'Stats' : 'Back'}
-          className="absolute left-0.5 h-7 w-7 rounded-xl p-0 opacity-60 transition-opacity hover:bg-transparent hover:opacity-100 dark:hover:bg-transparent"
+          className="absolute right-7.5 h-7 w-7 rounded-xl p-0 opacity-60 transition-opacity hover:bg-transparent hover:opacity-100 dark:hover:bg-transparent"
         >
           {navigation.direction === 'stats' ? (
             <ChartColumn className="h-3.5 w-3.5" aria-hidden />

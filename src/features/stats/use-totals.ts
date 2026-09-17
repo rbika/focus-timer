@@ -1,25 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-import { api, onEntryRecorded, type Totals } from '@/lib/tauri'
+import { api, type Totals } from '@/lib/tauri'
+import { useEntryRecordedData } from '@/features/stats/use-entry-recorded-data'
 
 /** Fetches Dashboard totals and keeps them current when an Entry is
  * recorded elsewhere in the app (e.g. a tray-menu pause). */
 export function useTotals() {
-  const [totals, setTotals] = useState<Totals | null>(null)
+  const { data: totals, refetch } = useEntryRecordedData<Totals>(api.getTotals)
 
+  // Today/This-Week/This-Month buckets can change at local midnight even
+  // without a new Entry (e.g. the Dashboard is left open overnight), so
+  // reschedule a refetch for the next one each time this fires.
   useEffect(() => {
-    let cancelled = false
     let midnightTimer: ReturnType<typeof setTimeout> | null = null
 
-    const refetch = () => {
-      void api.getTotals().then((next) => {
-        if (!cancelled) setTotals(next)
-      })
-    }
-
-    // Today/This-Week/This-Month buckets can change at local midnight even
-    // without a new Entry (e.g. the Dashboard is left open overnight), so
-    // reschedule a refetch for the next one each time this fires.
     const scheduleMidnightRefetch = () => {
       const now = new Date()
       const nextMidnight = new Date(
@@ -36,17 +30,12 @@ export function useTotals() {
       }, nextMidnight.getTime() - now.getTime())
     }
 
-    refetch()
     scheduleMidnightRefetch()
 
-    const unlisten = onEntryRecorded(refetch)
-
     return () => {
-      cancelled = true
       if (midnightTimer) clearTimeout(midnightTimer)
-      void unlisten.then((fn) => fn())
     }
-  }, [])
+  }, [refetch])
 
   return totals
 }

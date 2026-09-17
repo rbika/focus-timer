@@ -63,6 +63,7 @@ export type UpdateStatus =
 export const api = {
   getSnapshot: () => invoke<TimerSnapshot>('get_snapshot'),
   getTotals: () => invoke<Totals>('get_totals'),
+  getEntries: () => invoke<Entry[]>('get_entries'),
   getSettings: () => invoke<Settings>('get_settings'),
   updateSettings: (settings: Settings) =>
     invoke<Settings>('update_settings', { settings }),

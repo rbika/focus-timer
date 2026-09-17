@@ -119,6 +119,13 @@ impl EntriesStore {
         compute_totals(&self.load_all(), now)
     }
 
+    /// All Entries, newest-first.
+    pub fn load_all_newest_first(&self) -> Vec<Entry> {
+        let mut entries = self.load_all();
+        entries.reverse();
+        entries
+    }
+
     fn write_all(&self, entries: &[Entry]) -> Result<(), String> {
         let json = serde_json::to_vec_pretty(entries).map_err(|e| e.to_string())?;
         crate::atomic_file::write_json(&self.path, &json)
@@ -220,6 +227,34 @@ mod tests {
 
         assert_eq!(store.load_all(), vec![first, second]);
         assert!(!dir.join("entries.json.tmp").exists());
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_all_newest_first_reverses_append_order() {
+        let dir = temp_dir("newest-first");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+
+        let first = Entry {
+            id: "first".into(),
+            mode: TimerMode::Timer,
+            started_at_unix: 100,
+            ended_at_unix: 200,
+            duration_secs: 100,
+        };
+        let second = Entry {
+            id: "second".into(),
+            mode: TimerMode::Timer,
+            started_at_unix: 300,
+            ended_at_unix: 400,
+            duration_secs: 100,
+        };
+        store.append(first.clone()).unwrap();
+        store.append(second.clone()).unwrap();
+
+        assert_eq!(store.load_all_newest_first(), vec![second, first]);
 
         let _ = fs::remove_dir_all(dir);
     }
