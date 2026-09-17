@@ -2,7 +2,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{ContextMenu, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, Size, WebviewWindow, Wry,
@@ -28,8 +28,6 @@ static LAST_TRAY_DIMMED: Mutex<Option<bool>> = Mutex::new(None);
 static LAST_TRAY_MODE: Mutex<Option<TimerMode>> = Mutex::new(None);
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
-    let menu = build_menu(app)?;
-
     let mode = app
         .state::<AppState>()
         .engine
@@ -46,19 +44,28 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .icon_as_template(true)
         .title(initial_title)
         .tooltip("Focus Timer")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             handle_menu_event(app, event.id().as_ref());
         })
+        // Deliberately never attached via `.menu()`/`set_menu()`: once a menu is
+        // attached to the NSStatusItem, macOS treats *any* click (left or right)
+        // as "show the menu" (this became true for left clicks too as of macOS 27),
+        // so both buttons would open the menu instead of only the right one. Instead
+        // we build the menu fresh and pop it up manually on right click only.
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
+            let TrayIconEvent::Click {
+                button,
                 button_state: MouseButtonState::Up,
                 ..
             } = event
-            {
-                toggle_main_window_from_tray(tray.app_handle());
+            else {
+                return;
+            };
+
+            match button {
+                MouseButton::Left => toggle_main_window_from_tray(tray.app_handle()),
+                MouseButton::Right => show_tray_menu(tray.app_handle()),
+                MouseButton::Middle => {}
             }
         })
         .build(app)?;
@@ -114,6 +121,38 @@ fn toggle_main_window_from_tray(app: &AppHandle) {
         let _ = crate::commands::show_timer_window(app.clone());
     }
 }
+
+fn show_tray_menu(app: &AppHandle) {
+    let Some(window) = app.get_window("main") else {
+        return;
+    };
+    let Ok(menu) = build_menu(app) else {
+        return;
+    };
+    let _ = menu.popup(window);
+    unhighlight_status_button(app);
+}
+
+#[cfg(target_os = "macos")]
+fn unhighlight_status_button(app: &AppHandle) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let _ = tray.with_inner_tray_icon(|inner| {
+        let Some(status_item) = inner.ns_status_item() else {
+            return;
+        };
+        let Some(mtm) = objc2::MainThreadMarker::new() else {
+            return;
+        };
+        if let Some(button) = status_item.button(mtm) {
+            button.highlight(false);
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+fn unhighlight_status_button(_: &AppHandle) {}
 
 fn is_recent_main_window_hide() -> bool {
     let Ok(last_hide) = LAST_MAIN_WINDOW_HIDE.lock() else {
@@ -285,11 +324,8 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 pub fn refresh_tray_menu(app: &AppHandle) {
     let dimmed = tray_is_dimmed(app);
-    if let Ok(menu) = build_menu(app) {
-        if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            let _ = tray.set_menu(Some(menu));
-            update_status_item_opacity(&tray, dimmed);
-        }
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        update_status_item_opacity(&tray, dimmed);
     }
 }
 
