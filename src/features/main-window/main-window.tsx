@@ -17,7 +17,7 @@ export function MainWindow() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <WindowTitleBar
         title=""
         onOpenSettings={() => void api.openSettings()}
@@ -27,7 +27,7 @@ export function MainWindow() {
             : { direction: 'back', onClick: () => switchTo('timer') }
         }
       />
-      <div className="relative flex-1">
+      <div className="relative min-h-0 flex-1">
         <div
           className={cn(
             'absolute inset-0 transition-opacity duration-200',

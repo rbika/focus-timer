@@ -39,7 +39,7 @@ export function EntriesTab() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+    <div className="flex flex-1 flex-col gap-2 overflow-y-auto overscroll-none">
       {entries?.map((entry) => <EntryCard key={entry.id} entry={entry} />)}
     </div>
   )

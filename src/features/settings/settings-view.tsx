@@ -95,9 +95,9 @@ export function SettingsView() {
     updateStatus.kind === 'installing'
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <WindowTitleBar title="Settings" />
-      <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-4 pb-8">
+      <main className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-none px-5 pt-4 pb-8">
         <SettingsGroup>
           <SettingsGroupTitle>General Behavior</SettingsGroupTitle>
           <SettingsGroupContent>

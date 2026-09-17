@@ -12,7 +12,7 @@ pub enum MainView {
 }
 
 const TIMER_SIZE: (f64, f64) = (290.0, 230.0);
-const STATS_SIZE: (f64, f64) = (320.0, 420.0);
+const STATS_SIZE: (f64, f64) = (290.0, 320.0);
 const RESIZE_DURATION: f64 = 0.2;
 
 #[tauri::command]

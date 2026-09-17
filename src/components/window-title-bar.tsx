@@ -1,4 +1,4 @@
-import { ArrowLeft, BoltIcon, ChartColumn } from 'lucide-react'
+import { BoltIcon, ChartColumn, Hourglass } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -41,7 +41,7 @@ export function WindowTitleBar({
           {navigation.direction === 'stats' ? (
             <ChartColumn className="h-3.5 w-3.5" aria-hidden />
           ) : (
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+            <Hourglass className="h-3.5 w-3.5" aria-hidden />
           )}
         </Button>
       )}
