@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { StatsView } from '@/features/stats/stats-view'
@@ -10,11 +10,33 @@ import { cn } from '@/utils/cn'
 export function MainWindow() {
   const [view, setView] = useState<MainView>('timer')
 
-  const switchTo = (next: MainView) => {
-    if (next === view) return
-    setView(next)
-    void api.resizeMainWindow(next)
-  }
+  const switchTo = useCallback(
+    (next: MainView) => {
+      if (next === view) return
+      setView(next)
+      void api.resizeMainWindow(next)
+    },
+    [view],
+  )
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return
+      }
+      if (event.key === '1') {
+        event.preventDefault()
+        switchTo('timer')
+        return
+      }
+      if (event.key === '2') {
+        event.preventDefault()
+        switchTo('stats')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [switchTo])
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
