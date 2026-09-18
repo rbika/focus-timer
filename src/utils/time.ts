@@ -55,16 +55,21 @@ function secsToCompact(total: number): string {
   return parts.join('')
 }
 
-/** Formats seconds as an uncapped `1234h 45m` label, for cumulative totals
- * (a session's `secsToCompact` caps at 99:59:59, which real totals can exceed). */
+/** Formats seconds as an uncapped Stats duration: `45s`, `1m 5s`, `1h 5s`.
+ * Zero units are dropped. A session's `secsToCompact` caps at 99:59:59, which
+ * real totals can exceed. */
 function secsToTotalLabel(total: number): string {
   const capped = Math.max(0, Math.floor(total))
+  if (capped === 0) return '0s'
+
   const hours = Math.floor(capped / 3600)
   const minutes = Math.floor((capped % 3600) / 60)
+  const seconds = capped % 60
 
   const parts: string[] = []
   if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0 || hours === 0) parts.push(`${minutes}m`)
+  if (minutes > 0) parts.push(`${minutes}m`)
+  if (seconds > 0) parts.push(`${seconds}s`)
   return parts.join(' ')
 }
 
