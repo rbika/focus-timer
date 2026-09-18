@@ -40,6 +40,21 @@ export function StatsView({ active }: { active: boolean }) {
     }, SLIDE_MS)
   }, [])
 
+  useEffect(() => {
+    if (!active) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return
+      }
+      if (event.key !== '2') return
+      event.preventDefault()
+      if (editorOpen) return
+      setTab((current) => (current === 'dashboard' ? 'entries' : 'dashboard'))
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [active, editorOpen])
+
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
       <div

@@ -5,6 +5,7 @@ import { StatsView } from '@/features/stats/stats-view'
 import { TimerView } from '@/features/timer/timer-view'
 import { api } from '@/lib/tauri'
 import type { MainView } from '@/lib/tauri'
+import { useTimerStore } from '@/store/timer-store'
 import { cn } from '@/utils/cn'
 
 export function MainWindow() {
@@ -26,7 +27,20 @@ export function MainWindow() {
       }
       if (event.key === '1') {
         event.preventDefault()
-        switchTo('timer')
+        if (view !== 'timer') {
+          switchTo('timer')
+          return
+        }
+        const snapshot = useTimerStore.getState().snapshot
+        if (
+          snapshot == null ||
+          (snapshot.status !== 'idle' && snapshot.status !== 'completed')
+        ) {
+          return
+        }
+        void useTimerStore
+          .getState()
+          .actions.setMode(snapshot.mode === 'timer' ? 'stopwatch' : 'timer')
         return
       }
       if (event.key === '2') {
@@ -36,7 +50,7 @@ export function MainWindow() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [switchTo])
+  }, [switchTo, view])
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
