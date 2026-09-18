@@ -50,6 +50,7 @@ export default defineConfig([
   },
   {
     files: ['**/*.md'],
+    ignores: ['.agents/**', 'docs/**'],
     plugins: { markdown },
     language: 'markdown/gfm',
     extends: ['markdown/recommended'],
