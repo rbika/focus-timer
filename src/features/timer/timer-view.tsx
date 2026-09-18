@@ -219,7 +219,7 @@ export function TimerView() {
           <div className="flex h-full w-full flex-col items-center justify-between gap-3">
             <div
               className={cn(
-                'flex h-7 w-full items-center justify-center gap-1.5 text-sm font-medium text-neutral-900 transition-opacity duration-200 dark:text-neutral-50',
+                'flex h-7 w-full shrink-0 items-center justify-center gap-1.5 text-sm font-medium text-neutral-900 transition-opacity duration-200 dark:text-neutral-50',
                 isPaused && 'opacity-60',
               )}
               aria-label={isStopwatch ? 'Stopwatch mode' : 'Timer mode'}
