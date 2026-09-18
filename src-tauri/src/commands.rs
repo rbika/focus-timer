@@ -51,6 +51,34 @@ pub fn get_entries(app: AppHandle) -> Vec<crate::entries::Entry> {
 }
 
 #[tauri::command]
+pub fn update_entry(
+    app: AppHandle,
+    id: String,
+    started_at_unix: u64,
+    ended_at_unix: u64,
+) -> Result<crate::entries::Entry, String> {
+    let updated = app
+        .state::<AppState>()
+        .entries
+        .lock()
+        .expect("entries lock")
+        .update_times(&id, started_at_unix, ended_at_unix)?;
+    let _ = app.emit("entries-changed", ());
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn delete_entry(app: AppHandle, id: String) -> Result<(), String> {
+    app.state::<AppState>()
+        .entries
+        .lock()
+        .expect("entries lock")
+        .delete(&id)?;
+    let _ = app.emit("entries-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
 pub fn get_settings(app: AppHandle) -> Settings {
     app.state::<AppState>()
         .settings

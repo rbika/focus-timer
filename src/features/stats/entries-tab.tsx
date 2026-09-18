@@ -1,4 +1,4 @@
-import { Hourglass, Timer } from 'lucide-react'
+import { ChevronRight, Hourglass, Timer } from 'lucide-react'
 
 import { groupEntriesByDay } from '@/features/stats/group-entries-by-day'
 import { useEntries } from '@/features/stats/use-entries'
@@ -14,11 +14,21 @@ function formatUnixTime(unixSecs: number): string {
   return timeFormatter.format(new Date(unixSecs * 1000))
 }
 
-function EntryCard({ entry }: { entry: Entry }) {
+function EntryCard({
+  entry,
+  onOpen,
+}: {
+  entry: Entry
+  onOpen: (entry: Entry) => void
+}) {
   const ModeIcon = entry.mode === 'timer' ? Hourglass : Timer
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 dark:bg-neutral-800/60">
+    <button
+      type="button"
+      onClick={() => onOpen(entry)}
+      className="group flex min-w-0 items-center gap-2 rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 text-left transition-colors hover:bg-neutral-200/70 dark:bg-neutral-800/60 dark:hover:bg-neutral-700/70"
+    >
       <ModeIcon
         className="h-3.5 w-3.5 shrink-0 text-neutral-500 dark:text-neutral-400"
         aria-label={entry.mode === 'timer' ? 'Timer' : 'Stopwatch'}
@@ -30,11 +40,19 @@ function EntryCard({ entry }: { entry: Entry }) {
         {formatUnixTime(entry.startedAtUnix)} –{' '}
         {formatUnixTime(entry.endedAtUnix)}
       </span>
-    </div>
+      <ChevronRight
+        className="ml-auto h-3.5 w-3.5 shrink-0 text-neutral-300 transition-colors group-hover:text-neutral-800 dark:text-neutral-600 dark:group-hover:text-neutral-100"
+        aria-hidden
+      />
+    </button>
   )
 }
 
-export function EntriesTab() {
+export function EntriesTab({
+  onOpenEntry,
+}: {
+  onOpenEntry: (entry: Entry) => void
+}) {
   const entries = useEntries()
 
   if (entries != null && entries.length === 0) {
@@ -60,7 +78,7 @@ export function EntriesTab() {
             </span>
           </header>
           {section.entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} />
+            <EntryCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
           ))}
         </section>
       ))}

@@ -126,6 +126,39 @@ impl EntriesStore {
         entries
     }
 
+    /// Corrects an Entry's start and end. Duration is derived. Mode is
+    /// unchanged. Any duration is allowed as long as end is after start.
+    pub fn update_times(
+        &self,
+        id: &str,
+        started_at_unix: u64,
+        ended_at_unix: u64,
+    ) -> Result<Entry, String> {
+        if ended_at_unix <= started_at_unix {
+            return Err("invalid range".into());
+        }
+        let mut entries = self.load_all();
+        let Some(entry) = entries.iter_mut().find(|entry| entry.id == id) else {
+            return Err("not found".into());
+        };
+        entry.started_at_unix = started_at_unix;
+        entry.ended_at_unix = ended_at_unix;
+        entry.duration_secs = ended_at_unix - started_at_unix;
+        let updated = entry.clone();
+        self.write_all(&entries)?;
+        Ok(updated)
+    }
+
+    pub fn delete(&self, id: &str) -> Result<(), String> {
+        let mut entries = self.load_all();
+        let before = entries.len();
+        entries.retain(|entry| entry.id != id);
+        if entries.len() == before {
+            return Err("not found".into());
+        }
+        self.write_all(&entries)
+    }
+
     fn write_all(&self, entries: &[Entry]) -> Result<(), String> {
         let json = serde_json::to_vec_pretty(entries).map_err(|e| e.to_string())?;
         crate::atomic_file::write_json(&self.path, &json)
@@ -411,5 +444,113 @@ mod tests {
             },
         ];
         assert_eq!(compute_totals(&entries, now).today, 600);
+    }
+
+    #[test]
+    fn update_times_rewrites_start_end_and_derives_duration_keeping_mode() {
+        let dir = temp_dir("update-times");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+        store
+            .append(Entry {
+                id: "entry-1".into(),
+                mode: TimerMode::Stopwatch,
+                started_at_unix: 1_000,
+                ended_at_unix: 1_100,
+                duration_secs: 100,
+            })
+            .unwrap();
+
+        let updated = store.update_times("entry-1", 2_000, 2_005).unwrap();
+        assert_eq!(updated.mode, TimerMode::Stopwatch);
+        assert_eq!(updated.started_at_unix, 2_000);
+        assert_eq!(updated.ended_at_unix, 2_005);
+        assert_eq!(updated.duration_secs, 5);
+
+        assert_eq!(store.load_all(), vec![updated]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn update_times_allows_one_second_duration() {
+        let dir = temp_dir("update-one-sec");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+        store
+            .append(Entry {
+                id: "entry-1".into(),
+                mode: TimerMode::Timer,
+                started_at_unix: 1_000,
+                ended_at_unix: 1_100,
+                duration_secs: 100,
+            })
+            .unwrap();
+
+        let updated = store.update_times("entry-1", 50, 51).unwrap();
+        assert_eq!(updated.duration_secs, 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn update_times_rejects_ended_not_after_started() {
+        let dir = temp_dir("update-invalid");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+        let original = Entry {
+            id: "entry-1".into(),
+            mode: TimerMode::Timer,
+            started_at_unix: 1_000,
+            ended_at_unix: 1_100,
+            duration_secs: 100,
+        };
+        store.append(original.clone()).unwrap();
+
+        assert!(store.update_times("entry-1", 100, 100).is_err());
+        assert!(store.update_times("entry-1", 200, 100).is_err());
+        assert_eq!(store.load_all(), vec![original]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn update_times_rejects_unknown_id() {
+        let dir = temp_dir("update-missing");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir);
+        assert!(store.update_times("nope", 1, 2).is_err());
+    }
+
+    #[test]
+    fn delete_removes_only_the_matching_entry() {
+        let dir = temp_dir("delete");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+        let first = Entry {
+            id: "first".into(),
+            mode: TimerMode::Timer,
+            started_at_unix: 100,
+            ended_at_unix: 200,
+            duration_secs: 100,
+        };
+        let second = Entry {
+            id: "second".into(),
+            mode: TimerMode::Timer,
+            started_at_unix: 300,
+            ended_at_unix: 400,
+            duration_secs: 100,
+        };
+        store.append(first.clone()).unwrap();
+        store.append(second.clone()).unwrap();
+
+        store.delete("first").unwrap();
+        assert_eq!(store.load_all(), vec![second]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn delete_rejects_unknown_id() {
+        let dir = temp_dir("delete-missing");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir);
+        assert!(store.delete("nope").is_err());
     }
 }

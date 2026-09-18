@@ -3,9 +3,9 @@
 A macOS menu bar timer. Running time is recorded as focused time the user can review in Stats.
 
 **Entry**:
-One contiguous stretch of running time, bounded by a start (Start or Resume) and an end (Pause, Cancel, or natural completion). Resuming always begins a new Entry.
+One contiguous stretch of running time, bounded by a start and an end. It is first recorded from a Start or Resume until Pause, Cancel, or natural completion. Accidental taps of 10 seconds or less are not recorded. After recording, start and end can be corrected (any duration is allowed as long as end is after start); mode cannot. An Entry can be deleted. Resuming always begins a new Entry.
 
-_Avoid: session, log. "Interval" is the engine's in-flight stretch, not a persisted Entry._
+_Avoid: session, log. "Interval" is the engine's in-flight stretch, not a persisted Entry. Do not treat the 10-second skip as an invariant of a persisted Entry._
 
 **Focused time**:
 The sum of Entry durations, regardless of mode (Timer or Stopwatch).

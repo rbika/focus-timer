@@ -64,6 +64,9 @@ export const api = {
   getSnapshot: () => invoke<TimerSnapshot>('get_snapshot'),
   getTotals: () => invoke<Totals>('get_totals'),
   getEntries: () => invoke<Entry[]>('get_entries'),
+  updateEntry: (id: string, startedAtUnix: number, endedAtUnix: number) =>
+    invoke<Entry>('update_entry', { id, startedAtUnix, endedAtUnix }),
+  deleteEntry: (id: string) => invoke<void>('delete_entry', { id }),
   getSettings: () => invoke<Settings>('get_settings'),
   updateSettings: (settings: Settings) =>
     invoke<Settings>('update_settings', { settings }),
@@ -85,7 +88,8 @@ export const api = {
   quitApp: () => invoke<void>('quit_app'),
   checkForUpdates: () => invoke<UpdateStatus>('check_for_updates'),
   getUpdateStatus: () => invoke<UpdateStatus>('get_update_status'),
-  installAvailableUpdate: () => invoke<UpdateStatus>('install_available_update'),
+  installAvailableUpdate: () =>
+    invoke<UpdateStatus>('install_available_update'),
   dismissAvailableUpdate: () => invoke<void>('dismiss_available_update'),
   cancelUpdateDownload: () => invoke<void>('cancel_update_download'),
   dismissUpdateProgress: () => invoke<void>('dismiss_update_progress'),
@@ -118,6 +122,10 @@ export function onEntryRecorded(
   handler: (entry: Entry) => void,
 ): Promise<UnlistenFn> {
   return listen<Entry>('entry-recorded', (event) => handler(event.payload))
+}
+
+export function onEntriesChanged(handler: () => void): Promise<UnlistenFn> {
+  return listen('entries-changed', () => handler())
 }
 
 export function onUpdateStatus(

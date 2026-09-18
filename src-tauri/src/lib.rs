@@ -38,6 +38,8 @@ pub fn run() {
             commands::get_snapshot,
             commands::get_totals,
             commands::get_entries,
+            commands::update_entry,
+            commands::delete_entry,
             commands::get_settings,
             commands::update_settings,
             commands::set_mode,

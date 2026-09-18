@@ -42,7 +42,7 @@ export function MainWindow() {
             view === 'stats' ? 'opacity-100' : 'pointer-events-none opacity-0',
           )}
         >
-          <StatsView />
+          <StatsView active={view === 'stats'} />
         </div>
       </div>
     </div>
