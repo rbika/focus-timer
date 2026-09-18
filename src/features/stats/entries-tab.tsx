@@ -3,7 +3,7 @@ import { ChevronRight, Hourglass, Timer } from 'lucide-react'
 import { groupEntriesByDay } from '@/features/stats/group-entries-by-day'
 import { useEntries } from '@/features/stats/use-entries'
 import type { Entry } from '@/lib/tauri'
-import { secsToTotalLabel } from '@/utils/time'
+import { secsToSummaryLabel } from '@/utils/time'
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric',
@@ -34,7 +34,7 @@ function EntryCard({
         aria-label={entry.mode === 'timer' ? 'Timer' : 'Stopwatch'}
       />
       <span className="shrink-0 text-[13px] font-medium text-neutral-900 tabular-nums dark:text-neutral-50">
-        {secsToTotalLabel(entry.durationSecs)}
+        {secsToSummaryLabel(entry.durationSecs)}
       </span>
       <span className="min-w-0 truncate text-xs text-neutral-500 dark:text-neutral-400">
         {formatUnixTime(entry.startedAtUnix)} –{' '}
@@ -74,7 +74,7 @@ export function EntriesTab({
               {section.label}
             </h2>
             <span className="text-[13px] font-medium text-neutral-900 tabular-nums dark:text-neutral-50">
-              {secsToTotalLabel(section.totalSecs)}
+              {secsToSummaryLabel(section.totalSecs)}
             </span>
           </header>
           {section.entries.map((entry) => (

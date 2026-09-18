@@ -73,4 +73,19 @@ function secsToTotalLabel(total: number): string {
   return parts.join(' ')
 }
 
-export { secsToMask, maskToSecs, digitsToMask, secsToCompact, secsToTotalLabel }
+/** Glanceable Stats summary: seconds only when the value is under a minute.
+ * At 60s and above, leftover seconds are floored away: `1m 5s` → `1m`. */
+function secsToSummaryLabel(total: number): string {
+  const capped = Math.max(0, Math.floor(total))
+  if (capped < 60) return secsToTotalLabel(capped)
+  return secsToTotalLabel(Math.floor(capped / 60) * 60)
+}
+
+export {
+  secsToMask,
+  maskToSecs,
+  digitsToMask,
+  secsToCompact,
+  secsToTotalLabel,
+  secsToSummaryLabel,
+}

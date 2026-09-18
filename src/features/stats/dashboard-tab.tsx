@@ -1,10 +1,10 @@
 import { useTotals } from '@/features/stats/use-totals'
-import { secsToTotalLabel } from '@/utils/time'
+import { secsToSummaryLabel } from '@/utils/time'
 
 function formatTotal(seconds: number | undefined): string {
   if (seconds == null) return ''
   if (seconds === 0) return '–'
-  return secsToTotalLabel(seconds)
+  return secsToSummaryLabel(seconds)
 }
 
 function StatTile({
