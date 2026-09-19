@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { ChevronLeft, Hourglass, Timer } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 
 import {
   SettingsGroup,
@@ -71,8 +71,8 @@ export function EntryEditor({ entry, active, onClose }: Props) {
   const dirty =
     startedUnix !== entry.startedAtUnix || endedUnix !== entry.endedAtUnix
   const canSave = rangeValid && dirty && !saving
-  const ModeIcon = entry.mode === 'timer' ? Hourglass : Timer
-  const modeLabel = entry.mode === 'timer' ? 'Timer' : 'Stopwatch'
+  const datetimeLocalClassName =
+    'h-7 max-w-[168px] min-w-0 rounded-md border border-neutral-300 bg-white px-1.5 text-right text-[12px] text-neutral-800 tabular-nums outline-none dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100'
 
   const footerMessage = persistError
     ? persistError === 'save'
@@ -116,7 +116,7 @@ export function EntryEditor({ entry, active, onClose }: Props) {
       className="flex h-full min-h-0 flex-col"
       inert={confirmDelete || !active ? true : undefined}
     >
-      <div className="-ml-1.5 shrink-0">
+      <div className="shrink-0">
         <Button
           type="button"
           variant="ghost"
@@ -131,16 +131,6 @@ export function EntryEditor({ entry, active, onClose }: Props) {
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
         <SettingsGroup>
           <SettingsGroupContent>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel>Type</SettingsGroupItemLabel>
-              <SettingsGroupItemControl className="gap-1.5 text-[13px] text-neutral-800 dark:text-neutral-100">
-                <ModeIcon
-                  className="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-400"
-                  aria-hidden
-                />
-                {modeLabel}
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
             <SettingsGroupItem className="flex-wrap">
               <SettingsGroupItemLabel htmlFor="entry-started">
                 Started
@@ -154,7 +144,7 @@ export function EntryEditor({ entry, active, onClose }: Props) {
                   onChange={(event) =>
                     onDraftChange('started', event.target.value)
                   }
-                  className="max-w-[168px] min-w-0 bg-transparent text-right text-[12px] text-neutral-800 tabular-nums outline-none dark:text-neutral-100"
+                  className={datetimeLocalClassName}
                 />
               </SettingsGroupItemControl>
             </SettingsGroupItem>
@@ -171,7 +161,7 @@ export function EntryEditor({ entry, active, onClose }: Props) {
                   onChange={(event) =>
                     onDraftChange('ended', event.target.value)
                   }
-                  className="max-w-[168px] min-w-0 bg-transparent text-right text-[12px] text-neutral-800 tabular-nums outline-none dark:text-neutral-100"
+                  className={datetimeLocalClassName}
                 />
               </SettingsGroupItemControl>
             </SettingsGroupItem>
@@ -184,15 +174,15 @@ export function EntryEditor({ entry, active, onClose }: Props) {
               </SettingsGroupItemControl>
             </SettingsGroupItem>
           </SettingsGroupContent>
-        </SettingsGroup>
-      </div>
-
-      <div className="shrink-0 pt-2">
+        </SettingsGroup>{' '}
         {footerMessage ? (
           <p className="mb-2 text-center text-xs text-red-600 dark:text-red-400">
             {footerMessage}
           </p>
         ) : null}
+      </div>
+
+      <div className="shrink-0 pt-2">
         <div className="flex items-center justify-between gap-2">
           <Button
             type="button"

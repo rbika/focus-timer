@@ -5,13 +5,11 @@ import { useEntries } from '@/features/stats/use-entries'
 import type { Entry } from '@/lib/tauri'
 import { secsToSummaryLabel } from '@/utils/time'
 
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric',
-  minute: '2-digit',
-})
-
 function formatUnixTime(unixSecs: number): string {
-  return timeFormatter.format(new Date(unixSecs * 1000))
+  const date = new Date(unixSecs * 1000)
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 function EntryCard({
@@ -27,7 +25,7 @@ function EntryCard({
     <button
       type="button"
       onClick={() => onOpen(entry)}
-      className="group flex min-w-0 items-center gap-2 rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 text-left transition-colors hover:bg-neutral-200/70 dark:bg-neutral-800/60 dark:hover:bg-neutral-700/70"
+      className="group flex min-w-0 items-center gap-2 rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 text-left transition-colors hover:bg-neutral-100 dark:bg-neutral-800/60 dark:hover:bg-neutral-700/70"
     >
       <ModeIcon
         className="h-3.5 w-3.5 shrink-0 text-neutral-500 dark:text-neutral-400"
@@ -36,12 +34,12 @@ function EntryCard({
       <span className="shrink-0 text-[13px] font-medium text-neutral-900 tabular-nums dark:text-neutral-50">
         {secsToSummaryLabel(entry.durationSecs)}
       </span>
-      <span className="min-w-0 truncate text-xs text-neutral-500 dark:text-neutral-400">
+      <span className="ml-2 min-w-0 truncate text-xs text-neutral-500 dark:text-neutral-400">
         {formatUnixTime(entry.startedAtUnix)} –{' '}
         {formatUnixTime(entry.endedAtUnix)}
       </span>
       <ChevronRight
-        className="ml-auto h-3.5 w-3.5 shrink-0 text-neutral-300 transition-colors group-hover:text-neutral-800 dark:text-neutral-600 dark:group-hover:text-neutral-100"
+        className="ml-auto h-3.5 w-3.5 shrink-0 text-neutral-300 transition-colors group-hover:text-neutral-400 dark:text-neutral-600 dark:group-hover:text-neutral-100"
         aria-hidden
       />
     </button>
@@ -66,7 +64,7 @@ export function EntriesTab({
   const sections = entries ? groupEntriesByDay(entries) : []
 
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto overscroll-none">
+    <div className="-mx-4 flex flex-1 flex-col gap-4 overflow-y-auto overscroll-none px-4">
       {sections.map((section) => (
         <section key={section.key} className="flex flex-col gap-2">
           <header className="flex items-baseline justify-between gap-2 px-0.5">
