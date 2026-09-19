@@ -63,11 +63,11 @@ export function UpdateAvailableView() {
     <div className="flex h-full flex-col">
       <WindowTitleBar title="" />
       <main className="flex min-h-0 flex-1 flex-col gap-3 px-6 pb-5">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <img
             src={appIcon}
             alt=""
-            className="h-16 w-16 shrink-0"
+            className="h-15 w-15 shrink-0"
             aria-hidden
           />
           <div className="flex flex-col gap-1">

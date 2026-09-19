@@ -10,7 +10,7 @@ export function ReleaseNotes({ content }: { content?: string | null }) {
 
   return (
     <div
-      className={`my-2 h-full max-h-48 overflow-y-auto overscroll-none rounded-md border border-neutral-300 p-3 ${textClass} [&_h3+ul]:mt-1 [&_p+p]:mt-2 [&_ul+p]:mt-2`}
+      className={`my-2 h-full max-h-52 overflow-y-auto overscroll-none rounded-md border border-neutral-200 p-3 dark:border-neutral-700 ${textClass} [&_h3+ul]:mt-1 [&_p+p]:mt-2 [&_ul+p]:mt-2`}
     >
       <Markdown
         components={{

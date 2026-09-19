@@ -1,4 +1,5 @@
 import { useTotals } from '@/features/stats/use-totals'
+import { cn } from '@/utils/cn'
 import { secsToSummaryLabel } from '@/utils/time'
 
 function formatTotal(seconds: number | undefined): string {
@@ -10,16 +11,37 @@ function formatTotal(seconds: number | undefined): string {
 function StatTile({
   label,
   seconds,
+  className,
+  labelClassName,
+  totalClassName,
 }: {
   label: string
   seconds: number | undefined
+  className?: string
+  labelClassName?: string
+  totalClassName?: string
 }) {
   return (
-    <div className="flex items-center justify-between rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 dark:bg-neutral-800/60">
-      <span className="text-[13px] text-neutral-800 dark:text-neutral-100">
+    <div
+      className={cn(
+        'flex items-center justify-between gap-1 rounded-[10px] bg-neutral-100/60 p-3 dark:bg-neutral-800/60',
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          'text-sm text-neutral-500 dark:text-neutral-100',
+          labelClassName,
+        )}
+      >
         {label}
       </span>
-      <span className="flex min-h-7 items-center text-sm font-medium text-neutral-900 tabular-nums dark:text-neutral-50">
+      <span
+        className={cn(
+          'flex min-h-7 items-center text-xl text-neutral-900 tabular-nums dark:text-neutral-50',
+          totalClassName,
+        )}
+      >
         {formatTotal(seconds)}
       </span>
     </div>

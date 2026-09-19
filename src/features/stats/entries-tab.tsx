@@ -23,8 +23,7 @@ function useStickyHeaderFade(
         scroller.querySelectorAll<HTMLElement>('[data-day-header]')
       for (const header of headers) {
         const pushed = rootTop - header.getBoundingClientRect().top
-        const opacity =
-          pushed <= 0.5 ? 1 : 1 - Math.min(1, pushed / header.offsetHeight)
+        const opacity = pushed <= 0.5 ? 1 : 1 - Math.min(1, pushed / 20)
         header.style.opacity = String(opacity)
       }
     }

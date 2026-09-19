@@ -123,15 +123,14 @@ export function EntryEditor({ entry, creating, active, onClose }: Props) {
       inert={confirmDelete || !active ? true : undefined}
     >
       <div className="shrink-0">
-        <Button
+        <button
           type="button"
-          variant="ghost"
           onClick={onClose}
-          className="h-7 gap-0.5 px-1.5 text-[13px]"
+          className="mb-2 flex shrink-0 items-center gap-1 self-start rounded-sm text-[13px] text-neutral-400 transition-colors hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-neutral-500 dark:hover:text-neutral-300"
         >
-          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          <ChevronLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Back
-        </Button>
+        </button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">

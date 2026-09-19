@@ -63,7 +63,7 @@
         "label": "update-available",
         "title": "Focus Timer",
         "width": 680,
-        "height": 360,
+        "height": 400,
         "resizable": false,
         "fullscreen": false,
         "visible": false,

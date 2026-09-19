@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { PlusIcon, SquarePenIcon } from 'lucide-react'
+
 import { DashboardTab } from '@/features/stats/dashboard-tab'
 import { EntriesTab } from '@/features/stats/entries-tab'
 import { EntryEditor } from '@/features/stats/entry-editor'
@@ -98,9 +100,9 @@ export function StatsView({ active }: { active: boolean }) {
               <button
                 type="button"
                 onClick={openCreate}
-                className="shrink-0 self-start rounded-sm text-[13px] text-neutral-400 transition-colors hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-neutral-500 dark:hover:text-neutral-300"
+                className="flex shrink-0 items-center gap-1 self-start rounded-sm text-[13px] text-neutral-400 transition-colors hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-neutral-500 dark:hover:text-neutral-300"
               >
-                Add entry
+                <SquarePenIcon className="h-3.5 w-3.5 shrink-0" /> Add entry
               </button>
               <EntriesTab onOpenEntry={openEditor} />
             </div>
