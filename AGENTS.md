@@ -48,6 +48,10 @@ React
 
 ## Agent skills
 
+### Commits
+
+`/implement` must not commit. Leave the working tree as-is after `/code-review` so the user can commit manually. This overrides the commit step in the implement skill.
+
 ### Issue tracker
 
 Issues and specs live as markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
