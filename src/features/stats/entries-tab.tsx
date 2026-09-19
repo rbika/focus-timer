@@ -1,8 +1,11 @@
+import { Fragment } from 'react'
+
 import { ChevronRight, Hourglass, Timer } from 'lucide-react'
 
 import { groupEntriesByDay } from '@/features/stats/group-entries-by-day'
 import { useEntries } from '@/features/stats/use-entries'
 import type { Entry } from '@/lib/tauri'
+import { cn } from '@/utils/cn'
 import { secsToSummaryLabel } from '@/utils/time'
 
 function formatUnixTime(unixSecs: number): string {
@@ -64,10 +67,10 @@ export function EntriesTab({
   const sections = entries ? groupEntriesByDay(entries) : []
 
   return (
-    <div className="-mx-4 flex flex-1 flex-col gap-4 overflow-y-auto overscroll-none px-4">
-      {sections.map((section) => (
-        <section key={section.key} className="flex flex-col gap-2">
-          <header className="flex items-baseline justify-between gap-2 px-0.5">
+    <div className="-mx-4 flex flex-1 flex-col overflow-y-auto overscroll-none px-4">
+      {sections.map((section, index) => (
+        <Fragment key={section.key}>
+          <header className="sticky top-0 z-10 -mx-4 flex items-baseline justify-between gap-2 bg-[canvas] px-4 py-1.5">
             <h2 className="text-[13px] text-neutral-800 dark:text-neutral-100">
               {section.label}
             </h2>
@@ -75,10 +78,17 @@ export function EntriesTab({
               {secsToSummaryLabel(section.totalSecs)}
             </span>
           </header>
-          {section.entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
-          ))}
-        </section>
+          <div
+            className={cn(
+              'flex flex-col gap-2',
+              index < sections.length - 1 && 'mb-4',
+            )}
+          >
+            {section.entries.map((entry) => (
+              <EntryCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
+            ))}
+          </div>
+        </Fragment>
       ))}
     </div>
   )
