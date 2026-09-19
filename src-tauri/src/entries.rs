@@ -8,13 +8,32 @@ use uuid::Uuid;
 
 use crate::timer::{FinishedInterval, TimerMode};
 
-/// A contiguous stretch of focused time, bounded by a start (Start or
-/// Resume) and an end (Pause, Cancel, or natural completion).
+/// How an Entry was produced: copied from the engine (Timer/Stopwatch) or
+/// created from Stats (Manual). Serialized as `mode` so existing files
+/// keep loading.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum EntryType {
+    Timer,
+    Stopwatch,
+    Manual,
+}
+
+impl From<TimerMode> for EntryType {
+    fn from(mode: TimerMode) -> Self {
+        match mode {
+            TimerMode::Timer => EntryType::Timer,
+            TimerMode::Stopwatch => EntryType::Stopwatch,
+        }
+    }
+}
+
+/// A contiguous stretch of focused time, bounded by a start and an end.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Entry {
     pub id: String,
-    pub mode: TimerMode,
+    pub mode: EntryType,
     pub started_at_unix: u64,
     pub ended_at_unix: u64,
     pub duration_secs: u64,
@@ -35,7 +54,11 @@ const MIN_ENTRY_DURATION_SECS: u64 = 10;
 /// Turns a just-finished engine interval into an Entry ready to persist,
 /// or `None` if it's at or under the 10-second minimum.
 pub fn entry_from_interval(interval: FinishedInterval) -> Option<Entry> {
-    let started_at_unix = interval.started_at.duration_since(UNIX_EPOCH).ok()?.as_secs();
+    let started_at_unix = interval
+        .started_at
+        .duration_since(UNIX_EPOCH)
+        .ok()?
+        .as_secs();
     let ended_at_unix = interval.ended_at.duration_since(UNIX_EPOCH).ok()?.as_secs();
     let duration_secs = ended_at_unix.saturating_sub(started_at_unix);
     if duration_secs <= MIN_ENTRY_DURATION_SECS {
@@ -43,7 +66,7 @@ pub fn entry_from_interval(interval: FinishedInterval) -> Option<Entry> {
     }
     Some(Entry {
         id: Uuid::new_v4().to_string(),
-        mode: interval.mode,
+        mode: interval.mode.into(),
         started_at_unix,
         ended_at_unix,
         duration_secs,
@@ -149,6 +172,23 @@ impl EntriesStore {
         Ok(updated)
     }
 
+    /// Persists a Manual entry. Any duration is allowed as long as end is
+    /// after start; the 10-second recording skip does not apply.
+    pub fn create_manual(&self, started_at_unix: u64, ended_at_unix: u64) -> Result<Entry, String> {
+        if ended_at_unix <= started_at_unix {
+            return Err("invalid range".into());
+        }
+        let entry = Entry {
+            id: Uuid::new_v4().to_string(),
+            mode: EntryType::Manual,
+            started_at_unix,
+            ended_at_unix,
+            duration_secs: ended_at_unix - started_at_unix,
+        };
+        self.append(entry.clone())?;
+        Ok(entry)
+    }
+
     pub fn delete(&self, id: &str) -> Result<(), String> {
         let mut entries = self.load_all();
         let before = entries.len();
@@ -189,7 +229,7 @@ mod tests {
             ended_at: started + Duration::from_secs(90),
         };
         let entry = entry_from_interval(interval).unwrap();
-        assert_eq!(entry.mode, TimerMode::Timer);
+        assert_eq!(entry.mode, EntryType::Timer);
         assert_eq!(entry.started_at_unix, 2_000_000_000);
         assert_eq!(entry.ended_at_unix, 2_000_000_090);
         assert_eq!(entry.duration_secs, 90);
@@ -222,7 +262,7 @@ mod tests {
 
         let entry = Entry {
             id: "entry-1".into(),
-            mode: TimerMode::Stopwatch,
+            mode: EntryType::Stopwatch,
             started_at_unix: 1_700_000_000,
             ended_at_unix: 1_700_000_060,
             duration_secs: 60,
@@ -243,14 +283,14 @@ mod tests {
 
         let first = Entry {
             id: "first".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 100,
             ended_at_unix: 200,
             duration_secs: 100,
         };
         let second = Entry {
             id: "second".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 300,
             ended_at_unix: 400,
             duration_secs: 100,
@@ -272,14 +312,14 @@ mod tests {
 
         let first = Entry {
             id: "first".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 100,
             ended_at_unix: 200,
             duration_secs: 100,
         };
         let second = Entry {
             id: "second".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 300,
             ended_at_unix: 400,
             duration_secs: 100,
@@ -309,14 +349,14 @@ mod tests {
     #[test]
     fn totals_bucket_by_calendar_day_week_and_month() {
         // "Now" is Wednesday 2024-01-17, 12:00 local.
-        let now = SystemTime::UNIX_EPOCH
-            + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
 
         let entries = vec![
             // Today, 09:00 -> counts toward all three buckets.
             Entry {
                 id: "today".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: unix_at_local(2024, 1, 17, 9, 0, 0),
                 ended_at_unix: unix_at_local(2024, 1, 17, 9, 10, 0),
                 duration_secs: 600,
@@ -324,7 +364,7 @@ mod tests {
             // Monday this week (week start), before today -> week + month only.
             Entry {
                 id: "this-week".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: unix_at_local(2024, 1, 15, 8, 0, 0),
                 ended_at_unix: unix_at_local(2024, 1, 15, 8, 5, 0),
                 duration_secs: 300,
@@ -332,7 +372,7 @@ mod tests {
             // Earlier this month, before this week -> month only.
             Entry {
                 id: "this-month".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: unix_at_local(2024, 1, 3, 8, 0, 0),
                 ended_at_unix: unix_at_local(2024, 1, 3, 8, 5, 0),
                 duration_secs: 300,
@@ -340,7 +380,7 @@ mod tests {
             // Last month -> none of the buckets.
             Entry {
                 id: "last-month".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: unix_at_local(2023, 12, 20, 8, 0, 0),
                 ended_at_unix: unix_at_local(2023, 12, 20, 8, 5, 0),
                 duration_secs: 300,
@@ -355,11 +395,11 @@ mod tests {
 
     #[test]
     fn entry_exactly_at_day_boundary_counts_toward_the_new_day() {
-        let now = SystemTime::UNIX_EPOCH
-            + Duration::from_secs(unix_at_local(2024, 1, 17, 23, 59, 0));
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 23, 59, 0));
         let entries = vec![Entry {
             id: "midnight".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2024, 1, 17, 0, 0, 0),
             ended_at_unix: unix_at_local(2024, 1, 17, 0, 1, 0),
             duration_secs: 60,
@@ -368,7 +408,7 @@ mod tests {
 
         let entries_before_midnight = vec![Entry {
             id: "before-midnight".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2024, 1, 16, 23, 59, 59),
             ended_at_unix: unix_at_local(2024, 1, 17, 0, 0, 30),
             duration_secs: 31,
@@ -379,11 +419,11 @@ mod tests {
     #[test]
     fn entry_exactly_at_week_boundary_counts_toward_the_new_week() {
         // Week starts Monday 2024-01-15.
-        let now = SystemTime::UNIX_EPOCH
-            + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
         let on_monday = vec![Entry {
             id: "monday".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2024, 1, 15, 0, 0, 0),
             ended_at_unix: unix_at_local(2024, 1, 15, 0, 1, 0),
             duration_secs: 60,
@@ -392,7 +432,7 @@ mod tests {
 
         let before_monday = vec![Entry {
             id: "sunday".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2024, 1, 14, 23, 59, 0),
             ended_at_unix: unix_at_local(2024, 1, 14, 23, 59, 30),
             duration_secs: 30,
@@ -402,11 +442,11 @@ mod tests {
 
     #[test]
     fn entry_exactly_at_month_boundary_counts_toward_the_new_month() {
-        let now = SystemTime::UNIX_EPOCH
-            + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
         let on_first = vec![Entry {
             id: "first".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2024, 1, 1, 0, 0, 0),
             ended_at_unix: unix_at_local(2024, 1, 1, 0, 1, 0),
             duration_secs: 60,
@@ -415,7 +455,7 @@ mod tests {
 
         let before_first = vec![Entry {
             id: "last-day-of-december".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: unix_at_local(2023, 12, 31, 23, 59, 0),
             ended_at_unix: unix_at_local(2023, 12, 31, 23, 59, 30),
             duration_secs: 30,
@@ -425,19 +465,19 @@ mod tests {
 
     #[test]
     fn both_modes_contribute_to_totals() {
-        let now = SystemTime::UNIX_EPOCH
-            + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
         let entries = vec![
             Entry {
                 id: "timer".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: unix_at_local(2024, 1, 17, 9, 0, 0),
                 ended_at_unix: unix_at_local(2024, 1, 17, 9, 5, 0),
                 duration_secs: 300,
             },
             Entry {
                 id: "stopwatch".into(),
-                mode: TimerMode::Stopwatch,
+                mode: EntryType::Stopwatch,
                 started_at_unix: unix_at_local(2024, 1, 17, 10, 0, 0),
                 ended_at_unix: unix_at_local(2024, 1, 17, 10, 5, 0),
                 duration_secs: 300,
@@ -454,7 +494,7 @@ mod tests {
         store
             .append(Entry {
                 id: "entry-1".into(),
-                mode: TimerMode::Stopwatch,
+                mode: EntryType::Stopwatch,
                 started_at_unix: 1_000,
                 ended_at_unix: 1_100,
                 duration_secs: 100,
@@ -462,7 +502,7 @@ mod tests {
             .unwrap();
 
         let updated = store.update_times("entry-1", 2_000, 2_005).unwrap();
-        assert_eq!(updated.mode, TimerMode::Stopwatch);
+        assert_eq!(updated.mode, EntryType::Stopwatch);
         assert_eq!(updated.started_at_unix, 2_000);
         assert_eq!(updated.ended_at_unix, 2_005);
         assert_eq!(updated.duration_secs, 5);
@@ -479,7 +519,7 @@ mod tests {
         store
             .append(Entry {
                 id: "entry-1".into(),
-                mode: TimerMode::Timer,
+                mode: EntryType::Timer,
                 started_at_unix: 1_000,
                 ended_at_unix: 1_100,
                 duration_secs: 100,
@@ -498,7 +538,7 @@ mod tests {
         let store = EntriesStore::new(dir.clone());
         let original = Entry {
             id: "entry-1".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 1_000,
             ended_at_unix: 1_100,
             duration_secs: 100,
@@ -526,14 +566,14 @@ mod tests {
         let store = EntriesStore::new(dir.clone());
         let first = Entry {
             id: "first".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 100,
             ended_at_unix: 200,
             duration_secs: 100,
         };
         let second = Entry {
             id: "second".into(),
-            mode: TimerMode::Timer,
+            mode: EntryType::Timer,
             started_at_unix: 300,
             ended_at_unix: 400,
             duration_secs: 100,
@@ -552,5 +592,49 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         let store = EntriesStore::new(dir);
         assert!(store.delete("nope").is_err());
+    }
+
+    #[test]
+    fn create_manual_persists_manual_type_without_ten_second_skip() {
+        let dir = temp_dir("create-manual");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+
+        let created = store.create_manual(1_000, 1_005).unwrap();
+        assert_eq!(created.mode, EntryType::Manual);
+        assert_eq!(created.started_at_unix, 1_000);
+        assert_eq!(created.ended_at_unix, 1_005);
+        assert_eq!(created.duration_secs, 5);
+        assert!(Uuid::parse_str(&created.id).is_ok());
+        assert_eq!(store.load_all(), vec![created]);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn create_manual_rejects_ended_not_after_started() {
+        let dir = temp_dir("create-manual-invalid");
+        fs::create_dir_all(&dir).unwrap();
+        let store = EntriesStore::new(dir.clone());
+
+        assert!(store.create_manual(100, 100).is_err());
+        assert!(store.create_manual(200, 100).is_err());
+        assert_eq!(store.load_all(), Vec::new());
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn manual_entries_contribute_to_totals() {
+        let now =
+            SystemTime::UNIX_EPOCH + Duration::from_secs(unix_at_local(2024, 1, 17, 12, 0, 0));
+        let entries = vec![Entry {
+            id: "manual".into(),
+            mode: EntryType::Manual,
+            started_at_unix: unix_at_local(2024, 1, 17, 9, 0, 0),
+            ended_at_unix: unix_at_local(2024, 1, 17, 9, 5, 0),
+            duration_secs: 300,
+        }];
+        assert_eq!(compute_totals(&entries, now).today, 300);
     }
 }

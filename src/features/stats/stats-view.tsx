@@ -11,10 +11,24 @@ import type { Entry } from '@/lib/tauri'
 import { cn } from '@/utils/cn'
 
 const SLIDE_MS = 180
+const MANUAL_DRAFT_DURATION_SECS = 60
+
+function draftManualEntry(): Entry {
+  const endedAtUnix = Math.floor(Date.now() / 1000)
+  const startedAtUnix = endedAtUnix - MANUAL_DRAFT_DURATION_SECS
+  return {
+    id: '',
+    mode: 'manual',
+    startedAtUnix,
+    endedAtUnix,
+    durationSecs: MANUAL_DRAFT_DURATION_SECS,
+  }
+}
 
 export function StatsView({ active }: { active: boolean }) {
   const [tab, setTab] = useState<StatsTab>('dashboard')
   const [editing, setEditing] = useState<Entry | null>(null)
+  const [creating, setCreating] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const closeTimer = useRef<number | null>(null)
 
@@ -23,11 +37,20 @@ export function StatsView({ active }: { active: boolean }) {
     if (closeTimer.current != null) window.clearTimeout(closeTimer.current)
     setEditorOpen(false)
     setEditing(null)
+    setCreating(false)
   }, [active])
 
   const openEditor = (entry: Entry) => {
     if (closeTimer.current != null) window.clearTimeout(closeTimer.current)
+    setCreating(false)
     setEditing(entry)
+    setEditorOpen(true)
+  }
+
+  const openCreate = () => {
+    if (closeTimer.current != null) window.clearTimeout(closeTimer.current)
+    setCreating(true)
+    setEditing(draftManualEntry())
     setEditorOpen(true)
   }
 
@@ -36,6 +59,7 @@ export function StatsView({ active }: { active: boolean }) {
     setEditorOpen(false)
     closeTimer.current = window.setTimeout(() => {
       setEditing(null)
+      setCreating(false)
       closeTimer.current = null
     }, SLIDE_MS)
   }, [])
@@ -70,7 +94,16 @@ export function StatsView({ active }: { active: boolean }) {
           {tab === 'dashboard' ? (
             <DashboardTab />
           ) : (
-            <EntriesTab onOpenEntry={openEditor} />
+            <div className="flex min-h-0 flex-1 flex-col gap-1">
+              <button
+                type="button"
+                onClick={openCreate}
+                className="shrink-0 self-start rounded-sm text-[13px] text-neutral-400 transition-colors hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 dark:text-neutral-500 dark:hover:text-neutral-300"
+              >
+                Add entry
+              </button>
+              <EntriesTab onOpenEntry={openEditor} />
+            </div>
           )}
         </main>
       </div>
@@ -83,6 +116,7 @@ export function StatsView({ active }: { active: boolean }) {
         {editing ? (
           <EntryEditor
             entry={editing}
+            creating={creating}
             active={editorOpen}
             onClose={closeEditor}
           />

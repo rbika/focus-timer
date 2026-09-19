@@ -51,6 +51,22 @@ pub fn get_entries(app: AppHandle) -> Vec<crate::entries::Entry> {
 }
 
 #[tauri::command]
+pub fn create_entry(
+    app: AppHandle,
+    started_at_unix: u64,
+    ended_at_unix: u64,
+) -> Result<crate::entries::Entry, String> {
+    let created = app
+        .state::<AppState>()
+        .entries
+        .lock()
+        .expect("entries lock")
+        .create_manual(started_at_unix, ended_at_unix)?;
+    let _ = app.emit("entries-changed", ());
+    Ok(created)
+}
+
+#[tauri::command]
 pub fn update_entry(
     app: AppHandle,
     id: String,

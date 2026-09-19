@@ -16,15 +16,17 @@ import {
 } from '@/features/stats/datetime-local'
 import { DeleteEntryDialog } from '@/features/stats/delete-entry-dialog'
 import { api, type Entry } from '@/lib/tauri'
+import { cn } from '@/utils/cn'
 import { secsToTotalLabel } from '@/utils/time'
 
 type Props = {
   entry: Entry
+  creating: boolean
   active: boolean
   onClose: () => void
 }
 
-export function EntryEditor({ entry, active, onClose }: Props) {
+export function EntryEditor({ entry, creating, active, onClose }: Props) {
   const [started, setStarted] = useState(() =>
     toDatetimeLocalValue(entry.startedAtUnix),
   )
@@ -70,7 +72,7 @@ export function EntryEditor({ entry, active, onClose }: Props) {
   const durationSecs = rangeValid ? endedUnix - startedUnix : 0
   const dirty =
     startedUnix !== entry.startedAtUnix || endedUnix !== entry.endedAtUnix
-  const canSave = rangeValid && dirty && !saving
+  const canSave = rangeValid && (creating || dirty) && !saving
   const datetimeLocalClassName =
     'h-7 max-w-[168px] min-w-0 rounded-md border border-neutral-300 bg-white px-1.5 text-right text-[12px] text-neutral-800 tabular-nums outline-none dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100'
 
@@ -92,7 +94,11 @@ export function EntryEditor({ entry, active, onClose }: Props) {
     if (!canSave || startedUnix == null || endedUnix == null) return
     setSaving(true)
     try {
-      await api.updateEntry(entry.id, startedUnix, endedUnix)
+      if (creating) {
+        await api.createEntry(startedUnix, endedUnix)
+      } else {
+        await api.updateEntry(entry.id, startedUnix, endedUnix)
+      }
       onClose()
     } catch {
       setPersistError('save')
@@ -183,15 +189,22 @@ export function EntryEditor({ entry, active, onClose }: Props) {
       </div>
 
       <div className="shrink-0 pt-2">
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-red-600 hover:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/10"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Delete
-          </Button>
+        <div
+          className={cn(
+            'flex items-center gap-2',
+            creating ? 'justify-end' : 'justify-between',
+          )}
+        >
+          {creating ? null : (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-red-600 hover:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/10"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel

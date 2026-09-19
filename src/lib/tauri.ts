@@ -8,6 +8,8 @@ export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed'
 
 export type TimerMode = 'timer' | 'stopwatch'
 
+export type EntryType = TimerMode | 'manual'
+
 export interface TimerSnapshot {
   status: TimerStatus
   mode: TimerMode
@@ -43,7 +45,7 @@ export interface Totals {
 
 export interface Entry {
   id: string
-  mode: TimerMode
+  mode: EntryType
   startedAtUnix: number
   endedAtUnix: number
   durationSecs: number
@@ -64,6 +66,8 @@ export const api = {
   getSnapshot: () => invoke<TimerSnapshot>('get_snapshot'),
   getTotals: () => invoke<Totals>('get_totals'),
   getEntries: () => invoke<Entry[]>('get_entries'),
+  createEntry: (startedAtUnix: number, endedAtUnix: number) =>
+    invoke<Entry>('create_entry', { startedAtUnix, endedAtUnix }),
   updateEntry: (id: string, startedAtUnix: number, endedAtUnix: number) =>
     invoke<Entry>('update_entry', { id, startedAtUnix, endedAtUnix }),
   deleteEntry: (id: string) => invoke<void>('delete_entry', { id }),
