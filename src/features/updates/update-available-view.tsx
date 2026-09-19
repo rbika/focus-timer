@@ -93,7 +93,7 @@ export function UpdateAvailableView() {
             {error}
           </p>
         ) : (
-          <ReleaseNotes content={notes} />
+          <ReleaseNotes content={notes} version={latestVersion} />
         )}
         <div className="mt-auto flex justify-end gap-2">
           {error ? (

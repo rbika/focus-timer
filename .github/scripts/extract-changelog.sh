@@ -18,7 +18,10 @@ fi
 notes="$(awk -v ver="v${version}" '
   /^## v/ {
     if (found) exit
-    if ($2 == ver) found = 1
+    if ($2 == ver) {
+      found = 1
+      next
+    }
   }
   found { print }
 ' "$changelog")"
