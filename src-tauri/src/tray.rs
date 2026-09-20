@@ -293,8 +293,6 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         start_enabled,
         None::<&str>,
     )?;
-    let reset = MenuItem::with_id(app, "reset", "Cancel", true, None::<&str>)?;
-
     let icon_only = state.settings.lock().expect("settings lock").icon_only;
     let icon_only_label = if icon_only {
         "Icon only: on"
@@ -312,7 +310,6 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         app,
         &[
             &pause,
-            &reset,
             &sep,
             &icon_only_item,
             &settings,
@@ -353,9 +350,6 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
     match id {
         "toggle_pause" => {
             let _ = crate::commands::toggle_pause(app.clone());
-        }
-        "reset" => {
-            let _ = crate::commands::reset(app.clone());
         }
         "toggle_icon_only" => {
             let _ = crate::commands::toggle_icon_only(app.clone());
@@ -445,13 +439,18 @@ pub fn any_sibling_window_visible(app: &AppHandle) -> bool {
 
 pub fn hide_main_window(app: &AppHandle) {
     save_main_window_position(app);
+    let mut was_visible = false;
     if let Some(window) = app.get_webview_window("main") {
-        if window.is_visible().unwrap_or(false) {
+        was_visible = window.is_visible().unwrap_or(false);
+        if was_visible {
             *LAST_MAIN_WINDOW_HIDE
                 .lock()
                 .expect("main window hide lock") = Some(Instant::now());
         }
         let _ = window.hide();
+    }
+    if was_visible {
+        let _ = app.emit("main-window-hidden", ());
     }
 }
 

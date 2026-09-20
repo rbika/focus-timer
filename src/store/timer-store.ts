@@ -26,6 +26,7 @@ interface TimerActions {
     start: () => Promise<void>
     togglePause: () => Promise<void>
     reset: () => Promise<void>
+    discard: () => Promise<void>
     setDuration: (durationSecs: number) => Promise<void>
     setMode: (mode: TimerMode) => Promise<void>
     saveSettings: (settings: Settings) => Promise<void>
@@ -93,6 +94,11 @@ export const useTimerStore = create<TimerStore>()((set) => {
 
       reset: async () => {
         const snapshot = await api.reset()
+        set({ snapshot })
+      },
+
+      discard: async () => {
+        const snapshot = await api.discard()
         set({ snapshot })
       },
 

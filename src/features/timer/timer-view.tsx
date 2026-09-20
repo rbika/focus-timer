@@ -5,23 +5,32 @@ import { Hourglass, Pause, Play, Timer, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DurationInput } from '@/features/timer/duration-input'
 import { ModeSwitch } from '@/features/timer/mode-switch'
+import {
+  DIALOG_FADE_MS,
+  RunningIntervalDialog,
+} from '@/features/timer/running-interval-dialog'
 import { TimerProgress } from '@/features/timer/timer-progress'
-import { api } from '@/lib/tauri'
+import { api, onMainWindowHidden } from '@/lib/tauri'
 import type { TimerMode } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
 import { cn } from '@/utils/cn'
 import { maskToSecs, secsToCompact, secsToMask } from '@/utils/time'
 
-export function TimerView() {
+export function TimerView({ active }: { active: boolean }) {
   const snapshot = useTimerStore((s) => s.snapshot)
   const settings = useTimerStore((s) => s.settings)
   const ready = useTimerStore((s) => s.ready)
   const togglePause = useTimerStore((s) => s.actions.togglePause)
   const reset = useTimerStore((s) => s.actions.reset)
+  const discard = useTimerStore((s) => s.actions.discard)
   const setDuration = useTimerStore((s) => s.actions.setDuration)
   const setMode = useTimerStore((s) => s.actions.setMode)
 
   const [mask, setMask] = useState('00:00:00')
+  const [dialog, setDialog] = useState<'closed' | 'open' | 'closing'>('closed')
+  const dialogRef = useRef(dialog)
+  dialogRef.current = dialog
+  const closeTimerRef = useRef<number | null>(null)
   const editingRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const genRef = useRef(0)
@@ -35,6 +44,23 @@ export function TimerView() {
       () => undefined,
     )
     return run
+  }, [])
+
+  const closeDialog = useCallback((immediate: boolean) => {
+    if (dialogRef.current === 'closed') return
+    if (closeTimerRef.current != null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    if (immediate) {
+      setDialog('closed')
+      return
+    }
+    setDialog('closing')
+    closeTimerRef.current = window.setTimeout(() => {
+      setDialog('closed')
+      closeTimerRef.current = null
+    }, DIALOG_FADE_MS)
   }, [])
 
   const syncDuration = useCallback(
@@ -158,10 +184,15 @@ export function TimerView() {
       }
       if (event.key === 'Escape') {
         event.preventDefault()
+        if (dialog !== 'closed') {
+          closeDialog(false)
+          return
+        }
         void api.hideTimerWindow()
         return
       }
       if (event.code === 'Space') {
+        if (dialog !== 'closed') return
         const target = event.target as HTMLElement | null
         const tag = target?.tagName
         // Don't hijack space while typing in a field or activating a
@@ -187,7 +218,46 @@ export function TimerView() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [snapshot, togglePause, handleStart])
+  }, [snapshot, togglePause, handleStart, dialog, closeDialog])
+
+  useEffect(() => {
+    if (!active) closeDialog(false)
+  }, [active, closeDialog])
+
+  useEffect(() => {
+    if (snapshot?.status !== 'running') closeDialog(false)
+  }, [snapshot?.status, closeDialog])
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    void onMainWindowHidden(() => closeDialog(true)).then((fn) => {
+      unlisten = fn
+    })
+    return () => {
+      unlisten?.()
+    }
+  }, [closeDialog])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current)
+      }
+    }
+  }, [])
+
+  const handleCancel = useCallback(() => {
+    const current = useTimerStore.getState().snapshot
+    if (current?.status === 'running' && current.intervalElapsedSecs > 10) {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+      setDialog('open')
+      return
+    }
+    void reset()
+  }, [reset])
 
   if (!ready || !snapshot) {
     return (
@@ -280,7 +350,7 @@ export function TimerView() {
             <div className="flex w-full items-center gap-2">
               <Button
                 variant="secondary"
-                onClick={() => void reset()}
+                onClick={handleCancel}
                 aria-label="Cancel timer"
                 className="flex-1 gap-1.5"
               >
@@ -311,7 +381,7 @@ export function TimerView() {
                   00:00:00
                 </div>
               ) : (
-                <div className="flex w-full flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5">
                   <DurationInput
                     value={mask}
                     onChange={handleMaskChange}
@@ -371,6 +441,15 @@ export function TimerView() {
           </>
         )}
       </main>
+      {dialog !== 'closed' && snapshot ? (
+        <RunningIntervalDialog
+          mode={snapshot.mode}
+          leaving={dialog === 'closing'}
+          onClose={() => closeDialog(false)}
+          onDiscard={() => void discard()}
+          onSave={() => void reset()}
+        />
+      ) : null}
     </div>
   )
 }

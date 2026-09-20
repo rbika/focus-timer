@@ -3,11 +3,16 @@
 A macOS menu bar timer. Running time is recorded as focused time the user can review in Stats.
 
 **Entry**:
-One contiguous stretch of focused time, bounded by a start and an end. It is either **recorded** from a Start or Resume until Pause, Cancel, or natural completion, or **created** from Stats as a Manual entry.
+One contiguous stretch of focused time, bounded by a start and an end. It is either **recorded** from a Start or Resume until Pause, Save of a running Interval, or natural completion, or **created** from Stats as a Manual entry.
 
 Accidental recorded taps of 10 seconds or less are not recorded. A Manual entry is a draft until Save; the 10-second skip does not apply to create or to later corrections. After an Entry exists, start and end can be corrected (any duration is allowed as long as end is after start); type cannot. An Entry can be deleted. Resuming always begins a new Entry.
 
 _Avoid: session, log. "Interval" is the engine's in-flight stretch, not a persisted Entry. Do not treat the 10-second skip as an invariant of a persisted Entry._
+
+**Discard**:
+Ending a running Interval without recording an Entry. The engine returns to Idle.
+
+_Avoid: Delete (that removes a persisted Entry). Discard never touches existing Entries._
 
 **Type**:
 Timer, Stopwatch, or Manual. Timer and Stopwatch are copied from the engine when an interval is recorded. Manual is only for entries created from Stats, shown with the square-pen icon.

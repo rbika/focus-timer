@@ -327,6 +327,13 @@ impl TimerEngine {
         }
     }
 
+    /// Elapsed seconds of the in-flight Interval, or 0 if not Running.
+    pub fn current_interval_elapsed_secs(&self, now: SystemTime) -> u64 {
+        self.current_interval_start()
+            .map(|started_at| now.duration_since(started_at).unwrap_or_default().as_secs())
+            .unwrap_or(0)
+    }
+
     /// Resets to Idle. If a run was in progress, finalizes it into an Entry
     /// first (a run already paused was finalized when it was paused, so
     /// resetting from Paused doesn't produce a second Entry).
@@ -336,7 +343,16 @@ impl TimerEngine {
             started_at,
             ended_at: now,
         });
+        self.return_to_idle();
+        finished
+    }
 
+    /// Returns to Idle without producing a finished Interval.
+    pub fn discard(&mut self) {
+        self.return_to_idle();
+    }
+
+    fn return_to_idle(&mut self) {
         self.deadline = None;
         self.started_at = None;
         self.status = TimerStatus::Idle;
@@ -348,8 +364,6 @@ impl TimerEngine {
                 self.elapsed_at_pause = 0;
             }
         }
-
-        finished
     }
 
     /// Advance wall-clock state. Returns the finished interval if the timer
@@ -707,6 +721,35 @@ mod tests {
     fn cancel_while_idle_produces_no_entry() {
         let mut engine = TimerEngine::new(120);
         assert!(engine.reset(t0()).is_none());
+    }
+
+    #[test]
+    fn discard_while_running_returns_to_idle_without_a_finished_interval() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        engine.discard();
+        assert_eq!(engine.status(), TimerStatus::Idle);
+        assert_eq!(engine.remaining_secs(now), 120);
+    }
+
+    #[test]
+    fn current_interval_elapsed_is_only_the_in_flight_stretch() {
+        let mut engine = TimerEngine::new(120);
+        let now = t0();
+        engine.start(now);
+        assert_eq!(
+            engine.current_interval_elapsed_secs(now + Duration::from_secs(40)),
+            40
+        );
+
+        engine.pause(now + Duration::from_secs(40));
+        let resume_at = now + Duration::from_secs(100);
+        engine.resume(resume_at);
+        assert_eq!(
+            engine.current_interval_elapsed_secs(resume_at + Duration::from_secs(5)),
+            5
+        );
     }
 
     #[test]

@@ -15,6 +15,7 @@ export interface TimerSnapshot {
   mode: TimerMode
   remainingSecs: number
   elapsedSecs: number
+  intervalElapsedSecs: number
   durationSecs: number
   formatted: string
 }
@@ -82,6 +83,7 @@ export const api = {
   resume: () => invoke<TimerSnapshot>('resume'),
   togglePause: () => invoke<TimerSnapshot>('toggle_pause'),
   reset: () => invoke<TimerSnapshot>('reset'),
+  discard: () => invoke<TimerSnapshot>('discard'),
   showTimerWindow: () => invoke<void>('show_timer_window'),
   hideTimerWindow: () => invoke<void>('hide_timer_window'),
   resizeMainWindow: (view: MainView) =>
@@ -100,6 +102,10 @@ export const api = {
   restartForUpdate: () => invoke<void>('restart_for_update'),
   getAppName: () => getName(),
   getAppVersion: () => getVersion(),
+}
+
+export function onMainWindowHidden(handler: () => void): Promise<UnlistenFn> {
+  return listen('main-window-hidden', () => handler())
 }
 
 export function onTimerTick(

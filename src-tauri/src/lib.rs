@@ -50,6 +50,7 @@ pub fn run() {
             commands::resume,
             commands::toggle_pause,
             commands::reset,
+            commands::discard,
             commands::toggle_icon_only,
             commands::show_timer_window,
             commands::hide_timer_window,
@@ -103,9 +104,10 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
                     if window.label() == "main" {
-                        tray::save_main_window_position(window.app_handle());
+                        tray::hide_main_window(window.app_handle());
+                    } else {
+                        let _ = window.hide();
                     }
-                    let _ = window.hide();
                 }
                 tauri::WindowEvent::Focused(false) if window.label() == "main" =>
                 {

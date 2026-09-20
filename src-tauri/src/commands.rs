@@ -293,6 +293,16 @@ pub fn reset(app: AppHandle) -> Result<TimerSnapshot, String> {
 }
 
 #[tauri::command]
+pub fn discard(app: AppHandle) -> Result<TimerSnapshot, String> {
+    let state = app.state::<AppState>();
+    {
+        let mut engine = state.engine.lock().expect("engine lock");
+        engine.discard();
+    }
+    after_control(&app)
+}
+
+#[tauri::command]
 pub fn toggle_icon_only(app: AppHandle) -> Result<Settings, String> {
     let state = app.state::<AppState>();
     let updated = {

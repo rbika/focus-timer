@@ -70,7 +70,7 @@ export function MainWindow() {
             view === 'timer' ? 'opacity-100' : 'pointer-events-none opacity-0',
           )}
         >
-          <TimerView />
+            <TimerView active={view === 'timer'} />
         </div>
         <div
           className={cn(

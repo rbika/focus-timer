@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             aria-pressed={selected}
             className={cn(
-              'relative z-10 flex-1 rounded-full py-1 text-xs font-medium transition-colors',
+              'relative z-10 flex-1 rounded-full py-1 text-[13px] font-medium transition-colors',
               selected
                 ? 'text-neutral-900 dark:text-neutral-800'
                 : 'text-neutral-500 dark:text-neutral-400',
