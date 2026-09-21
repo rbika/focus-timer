@@ -24,6 +24,9 @@ use timer::TimerStatus;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(debug_assertions)]
+    load_dev_dotenv();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
@@ -94,6 +97,9 @@ pub fn run() {
             sync_autostart(app.handle());
             tray::create_tray(app.handle())?;
             tray::position_main_window(app.handle());
+            if let Some(window) = app.get_webview_window("main") {
+                window::apply_dev_always_on_top(&window);
+            }
             start_tick_loop(app.handle().clone());
             updater::start_background_checks(app.handle().clone());
 
@@ -109,7 +115,8 @@ pub fn run() {
                         let _ = window.hide();
                     }
                 }
-                tauri::WindowEvent::Focused(false) if window.label() == "main" =>
+                tauri::WindowEvent::Focused(false)
+                    if window.label() == "main" && !window::always_on_top_enabled() =>
                 {
                     let app = window.app_handle();
                     if !tray::any_sibling_window_visible(app) {
@@ -121,6 +128,14 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Focus Timer");
+}
+
+/// Load `.env.local` then `.env` from the project root (debug only).
+/// Existing process env wins; `.env.local` wins over `.env` for unset keys.
+#[cfg(debug_assertions)]
+fn load_dev_dotenv() {
+    let _ = dotenvy::from_filename(".env.local");
+    let _ = dotenvy::dotenv();
 }
 
 fn sync_autostart(app: &tauri::AppHandle) {

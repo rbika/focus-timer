@@ -1,5 +1,28 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindow};
+
+/// Dev-only pin for the main window.
+///
+/// - Release builds always return `false` (shipping apps never pin).
+/// - Debug builds honor `ALWAYS_ON_TOP` from the process env / `.env` files.
+pub fn always_on_top_enabled() -> bool {
+    if !cfg!(debug_assertions) {
+        return false;
+    }
+    match std::env::var("ALWAYS_ON_TOP") {
+        Ok(value) => matches!(
+            value.to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => false,
+    }
+}
+
+pub fn apply_dev_always_on_top(window: &WebviewWindow) {
+    if always_on_top_enabled() {
+        let _ = window.set_always_on_top(true);
+    }
+}
 
 /// Which content the main window is currently showing — drives the
 /// animated resize between the compact Timer footprint and the larger

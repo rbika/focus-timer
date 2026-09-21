@@ -26,8 +26,11 @@ Requires **macOS 26 (Tahoe)** or newer.
 
 ```bash
 npm install
+cp .env.example .env
 npm run tauri dev
 ```
+
+Debug builds load `.env` / `.env.local` from the project root. `ALWAYS_ON_TOP=true` keeps the timer panel visible while you work; set it to `false` for normal hide-on-blur. Release builds ignore these files and never pin.
 
 ## Architecture
 

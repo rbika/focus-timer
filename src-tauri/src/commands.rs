@@ -324,6 +324,7 @@ pub fn toggle_icon_only(app: AppHandle) -> Result<Settings, String> {
 #[tauri::command]
 pub fn show_timer_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
+        crate::window::apply_dev_always_on_top(&window);
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         // Push current snapshot when shown
