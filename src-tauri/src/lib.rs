@@ -68,7 +68,7 @@ pub fn run() {
             commands::dismiss_available_update,
             commands::cancel_update_download,
             commands::dismiss_update_progress,
-            commands::restart_for_update,
+            commands::install_and_restart,
             window::resize_main_window,
         ])
         .setup(|app| {

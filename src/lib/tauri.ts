@@ -58,7 +58,6 @@ export type UpdateStatus =
   | { kind: 'upToDate'; manual: boolean }
   | { kind: 'available'; version: string; notes?: string | null }
   | { kind: 'downloading'; downloaded: number; total?: number | null }
-  | { kind: 'installing' }
   | { kind: 'readyToRestart'; version: string }
   | { kind: 'error'; message: string; manual: boolean }
   | { kind: 'cancelled' }
@@ -99,7 +98,7 @@ export const api = {
   dismissAvailableUpdate: () => invoke<void>('dismiss_available_update'),
   cancelUpdateDownload: () => invoke<void>('cancel_update_download'),
   dismissUpdateProgress: () => invoke<void>('dismiss_update_progress'),
-  restartForUpdate: () => invoke<void>('restart_for_update'),
+  installAndRestart: () => invoke<void>('install_and_restart'),
   getAppName: () => getName(),
   getAppVersion: () => getVersion(),
 }

@@ -18,6 +18,11 @@ pub struct PendingUpdate {
     pub notes: Option<String>,
 }
 
+pub struct DownloadedUpdate {
+    pub update: tauri_plugin_updater::Update,
+    pub bytes: Vec<u8>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum UpdateStatus {
@@ -36,7 +41,6 @@ pub enum UpdateStatus {
         downloaded: u64,
         total: Option<u64>,
     },
-    Installing,
     ReadyToRestart {
         version: String,
     },
@@ -53,16 +57,25 @@ pub fn start_background_checks(app: AppHandle) {
         loop {
             let should_check = {
                 let state = app.state::<AppState>();
-                let enabled = state
-                    .settings
+                let package_waiting = state
+                    .downloaded_update
                     .lock()
-                    .expect("settings lock")
-                    .auto_check_for_updates;
-                if !enabled {
+                    .expect("downloaded update lock")
+                    .is_some();
+                if package_waiting {
                     false
                 } else {
-                    let meta = state.updater_meta.lock().expect("updater meta lock");
-                    should_auto_check(meta.last_auto_check_unix, unix_now())
+                    let enabled = state
+                        .settings
+                        .lock()
+                        .expect("settings lock")
+                        .auto_check_for_updates;
+                    if !enabled {
+                        false
+                    } else {
+                        let meta = state.updater_meta.lock().expect("updater meta lock");
+                        should_auto_check(meta.last_auto_check_unix, unix_now())
+                    }
                 }
             };
 
@@ -84,6 +97,19 @@ pub fn should_auto_check(last_auto_check_unix: Option<u64>, now_unix: u64) -> bo
 }
 
 pub async fn run_check(app: AppHandle, manual: bool) -> Result<UpdateStatus, String> {
+    if app
+        .state::<AppState>()
+        .downloaded_update
+        .lock()
+        .expect("downloaded update lock")
+        .is_some()
+    {
+        if manual {
+            show_update_progress_window(&app);
+        }
+        return Ok(current_status(&app));
+    }
+
     let state = app.state::<AppState>();
     if state
         .update_in_flight
@@ -165,10 +191,7 @@ pub async fn install_available_update(app: AppHandle) -> Result<UpdateStatus, St
         UpdateStatus::Available { version, notes } => {
             {
                 let state = app.state::<AppState>();
-                *state
-                    .pending_update
-                    .lock()
-                    .expect("pending update lock") = Some(PendingUpdate {
+                *state.pending_update.lock().expect("pending update lock") = Some(PendingUpdate {
                     version: version.clone(),
                     notes: notes.clone(),
                 });
@@ -221,8 +244,10 @@ async fn install_available_update_inner(
         Err(err) => return finish_error(&app, err.to_string(), true),
     };
 
-    let installed_version = update.version.clone();
+    let version = update.version.clone();
 
+    clear_download_cancel(&app);
+    clear_downloaded_update(&app);
     hide_update_available_window(&app);
     show_update_progress_window(&app);
     set_status(
@@ -233,39 +258,65 @@ async fn install_available_update_inner(
         },
     );
 
-    let mut downloaded: u64 = 0;
-    let mut total: Option<u64> = None;
+    let progress = std::sync::Arc::new(std::sync::Mutex::new((0u64, None::<u64>)));
+    let progress_chunk = std::sync::Arc::clone(&progress);
+    let progress_done = std::sync::Arc::clone(&progress);
+    let app_chunk = app.clone();
+    let app_done = app.clone();
+
     let download_result = update
-        .download_and_install(
-            |chunk_len, content_len| {
-                downloaded = downloaded.saturating_add(chunk_len as u64);
+        .download(
+            move |chunk_len, content_len| {
+                let mut progress = progress_chunk.lock().expect("download progress lock");
+                progress.0 = progress.0.saturating_add(chunk_len as u64);
                 if content_len.is_some() {
-                    total = content_len;
+                    progress.1 = content_len;
                 }
-                set_status(&app, UpdateStatus::Downloading { downloaded, total });
+                let (downloaded, total) = *progress;
+                drop(progress);
+                publish_downloading(&app_chunk, downloaded, total);
             },
-            || {
-                set_status(&app, UpdateStatus::Installing);
+            move || {
+                let (downloaded, content_len) =
+                    *progress_done.lock().expect("download progress lock");
+                let total = completed_download_total(downloaded, content_len);
+                publish_downloading(&app_done, downloaded, Some(total));
             },
         )
         .await;
 
-    if let Err(err) = download_result {
-        hide_update_progress_window(&app);
-        show_update_available_window(&app);
-        return finish_error(&app, err.to_string(), true);
+    let bytes = match download_result {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            if download_was_cancelled(&app) {
+                return Ok(current_status(&app));
+            }
+            hide_update_progress_window(&app);
+            show_update_available_window(&app);
+            return finish_error(&app, err.to_string(), true);
+        }
+    };
+
+    if !store_downloaded_update(&app, update, bytes, version.clone()) {
+        return Ok(current_status(&app));
     }
 
-    let status = UpdateStatus::ReadyToRestart {
-        version: installed_version.clone(),
-    };
-    set_status(&app, status.clone());
     show_update_progress_window(&app);
-
-    Ok(status)
+    Ok(UpdateStatus::ReadyToRestart { version })
 }
 
 pub fn cancel_update_download(app: &AppHandle) {
+    {
+        let state = app.state::<AppState>();
+        let mut package = state
+            .downloaded_update
+            .lock()
+            .expect("downloaded update lock");
+        state
+            .download_cancelled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        *package = None;
+    }
     restore_available_update(app);
     hide_update_progress_window(app);
     show_update_available_window(app);
@@ -275,13 +326,61 @@ pub fn dismiss_update_progress(app: &AppHandle) {
     let status = current_status(app);
     hide_update_progress_window(app);
     if matches!(status, UpdateStatus::Error { .. }) {
+        clear_downloaded_update(app);
         restore_available_update(app);
         show_update_available_window(app);
     }
 }
 
-pub fn restart_for_update(app: &AppHandle) {
-    app.restart();
+pub async fn install_and_restart(app: AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    if state
+        .update_in_flight
+        .compare_exchange(
+            false,
+            true,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_err()
+    {
+        return Ok(());
+    }
+
+    let package = state
+        .downloaded_update
+        .lock()
+        .expect("downloaded update lock")
+        .take();
+
+    let Some(DownloadedUpdate { update, bytes }) = package else {
+        state
+            .update_in_flight
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        return Err("No downloaded update to install.".into());
+    };
+
+    let install_result =
+        tauri::async_runtime::spawn_blocking(move || (update.install(&bytes), update, bytes)).await;
+
+    let err = match install_result {
+        Ok((Ok(()), _, _)) => app.restart(),
+        Ok((Err(err), update, bytes)) => {
+            let version = update.version.clone();
+            *state
+                .downloaded_update
+                .lock()
+                .expect("downloaded update lock") = Some(DownloadedUpdate { update, bytes });
+            set_status(&app, UpdateStatus::ReadyToRestart { version });
+            show_update_progress_window(&app);
+            err.to_string()
+        }
+        Err(err) => err.to_string(),
+    };
+    state
+        .update_in_flight
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    Err(err)
 }
 
 pub fn dismiss_available_update(app: &AppHandle) {
@@ -392,6 +491,70 @@ fn notes_preview(notes: Option<&str>) -> String {
     format!("{truncated}…")
 }
 
+fn completed_download_total(downloaded: u64, content_len: Option<u64>) -> u64 {
+    match content_len {
+        Some(total) if total > 0 => total,
+        _ => downloaded,
+    }
+}
+
+fn publish_downloading(app: &AppHandle, downloaded: u64, total: Option<u64>) {
+    let state = app.state::<AppState>();
+    let _package = state
+        .downloaded_update
+        .lock()
+        .expect("downloaded update lock");
+    if state
+        .download_cancelled
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        return;
+    }
+    set_status(app, UpdateStatus::Downloading { downloaded, total });
+}
+
+fn store_downloaded_update(
+    app: &AppHandle,
+    update: tauri_plugin_updater::Update,
+    bytes: Vec<u8>,
+    version: String,
+) -> bool {
+    let state = app.state::<AppState>();
+    let mut package = state
+        .downloaded_update
+        .lock()
+        .expect("downloaded update lock");
+    if state
+        .download_cancelled
+        .load(std::sync::atomic::Ordering::SeqCst)
+    {
+        *package = None;
+        return false;
+    }
+    *package = Some(DownloadedUpdate { update, bytes });
+    set_status(app, UpdateStatus::ReadyToRestart { version });
+    true
+}
+
+fn clear_download_cancel(app: &AppHandle) {
+    app.state::<AppState>()
+        .download_cancelled
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn download_was_cancelled(app: &AppHandle) -> bool {
+    app.state::<AppState>()
+        .download_cancelled
+        .load(std::sync::atomic::Ordering::SeqCst)
+}
+
+fn clear_downloaded_update(app: &AppHandle) {
+    *app.state::<AppState>()
+        .downloaded_update
+        .lock()
+        .expect("downloaded update lock") = None;
+}
+
 fn unix_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -428,5 +591,16 @@ mod tests {
         let preview = notes_preview(Some(&long));
         assert!(preview.ends_with('…'));
         assert_eq!(preview.chars().count(), NOTES_PREVIEW_CHARS + 1);
+    }
+
+    #[test]
+    fn completed_download_keeps_content_length_when_the_server_sent_one() {
+        assert_eq!(completed_download_total(50, Some(100)), 100);
+    }
+
+    #[test]
+    fn completed_download_uses_bytes_received_when_length_is_missing() {
+        assert_eq!(completed_download_total(50, None), 50);
+        assert_eq!(completed_download_total(50, Some(0)), 50);
     }
 }

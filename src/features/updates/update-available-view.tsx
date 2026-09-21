@@ -33,7 +33,6 @@ export function UpdateAvailableView() {
   useEffect(() => {
     if (
       status.kind === 'downloading' ||
-      status.kind === 'installing' ||
       status.kind === 'readyToRestart' ||
       status.kind === 'cancelled' ||
       status.kind === 'upToDate'

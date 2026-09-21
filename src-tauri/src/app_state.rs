@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use crate::entries::EntriesStore;
 use crate::persistence::{Persistence, Settings, UpdaterMeta, WindowPosition};
 use crate::timer::{TimerEngine, TimerSnapshot};
-use crate::updater::{PendingUpdate, UpdateStatus};
+use crate::updater::{DownloadedUpdate, PendingUpdate, UpdateStatus};
 
 pub struct AppState {
     pub engine: Mutex<TimerEngine>,
@@ -19,6 +19,8 @@ pub struct AppState {
     pub update_status: Mutex<UpdateStatus>,
     pub update_in_flight: AtomicBool,
     pub pending_update: Mutex<Option<PendingUpdate>>,
+    pub downloaded_update: Mutex<Option<DownloadedUpdate>>,
+    pub download_cancelled: AtomicBool,
 }
 
 impl AppState {
@@ -48,6 +50,8 @@ impl AppState {
             update_status: Mutex::new(UpdateStatus::Idle),
             update_in_flight: AtomicBool::new(false),
             pending_update: Mutex::new(None),
+            downloaded_update: Mutex::new(None),
+            download_cancelled: AtomicBool::new(false),
         }
     }
 

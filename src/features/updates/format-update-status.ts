@@ -24,12 +24,10 @@ export function formatUpdateStatus(status: {
       }
       return 'Downloading update…'
     }
-    case 'installing':
-      return 'Installing update…'
     case 'readyToRestart':
       return status.version
-        ? `Version ${status.version} is installed. Restart when ready.`
-        : 'Update installed. Restart when ready.'
+        ? `Version ${status.version} is ready to install.`
+        : 'Update ready to install.'
     case 'error':
       return 'Update check failed. Please try again later.'
     default:

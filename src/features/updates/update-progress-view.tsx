@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { LogicalSize } from '@tauri-apps/api/dpi'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -12,6 +12,7 @@ import appIcon from '../../../src-tauri/icons/128x128.png'
 const PROGRESS_WINDOW_WIDTH = 400
 const PROGRESS_WINDOW_HEIGHT = 148
 const READY_WINDOW_HEIGHT = 180
+const BAR_FILL_MS = 220
 
 function downloadPercent(downloaded: number, total?: number | null): number {
   if (!total || total <= 0) {
@@ -23,6 +24,12 @@ function downloadPercent(downloaded: number, total?: number | null): number {
 
 export function UpdateProgressView() {
   const [status, setStatus] = useState<UpdateStatus>({ kind: 'idle' })
+  const [showInstallStep, setShowInstallStep] = useState(false)
+  const [installRequested, setInstallRequested] = useState(false)
+  const [installFailed, setInstallFailed] = useState(false)
+  const barRef = useRef<HTMLDivElement>(null)
+  const previousKind = useRef(status.kind)
+  const lastProgressLabel = useRef<string | null>(null)
 
   useEffect(() => {
     void api.getUpdateStatus().then(setStatus)
@@ -45,14 +52,48 @@ export function UpdateProgressView() {
   }, [status.kind])
 
   useEffect(() => {
-    const height =
-      status.kind === 'readyToRestart'
-        ? READY_WINDOW_HEIGHT
-        : PROGRESS_WINDOW_HEIGHT
+    const previous = previousKind.current
+    previousKind.current = status.kind
+
+    if (status.kind !== 'readyToRestart') {
+      setShowInstallStep(false)
+      return
+    }
+
+    if (previous !== 'downloading') {
+      setShowInstallStep(true)
+      return
+    }
+
+    let cancelled = false
+    const show = () => {
+      if (!cancelled) {
+        setShowInstallStep(true)
+      }
+    }
+    const bar = barRef.current
+    const onEnd = (event: TransitionEvent) => {
+      if (event.propertyName === 'width') {
+        show()
+      }
+    }
+    bar?.addEventListener('transitionend', onEnd)
+    const timeout = window.setTimeout(show, BAR_FILL_MS)
+    return () => {
+      cancelled = true
+      bar?.removeEventListener('transitionend', onEnd)
+      window.clearTimeout(timeout)
+    }
+  }, [status.kind])
+
+  useEffect(() => {
+    const height = showInstallStep
+      ? READY_WINDOW_HEIGHT
+      : PROGRESS_WINDOW_HEIGHT
     void getCurrentWebviewWindow().setSize(
       new LogicalSize(PROGRESS_WINDOW_WIDTH, height),
     )
-  }, [status.kind])
+  }, [showInstallStep])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,39 +102,42 @@ export function UpdateProgressView() {
       }
 
       event.preventDefault()
-      if (status.kind === 'downloading' || status.kind === 'installing') {
+      if (status.kind === 'downloading') {
         void api.cancelUpdateDownload()
-      } else if (status.kind === 'readyToRestart') {
+      } else if (status.kind === 'readyToRestart' && showInstallStep) {
         void api.dismissUpdateProgress()
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [status.kind])
+  }, [showInstallStep, status.kind])
 
   const isDownloading = status.kind === 'downloading'
-  const isInstalling = status.kind === 'installing'
-  const isReady = status.kind === 'readyToRestart'
+  const holdingFullBar = status.kind === 'readyToRestart' && !showInstallStep
+  const isReady = showInstallStep
   const isError = status.kind === 'error'
 
   const title = isReady
     ? 'Restart to Update'
-    : isInstalling
-      ? 'Installing update…'
-      : isError
-        ? 'Update failed'
-        : 'Downloading update…'
+    : isError
+      ? 'Update failed'
+      : 'Downloading update…'
+
+  if (isDownloading && status.kind === 'downloading') {
+    lastProgressLabel.current = formatDownloadProgress(
+      status.downloaded,
+      status.total,
+    )
+  }
 
   const progressLabel =
-    isDownloading && status.kind === 'downloading'
-      ? formatDownloadProgress(status.downloaded, status.total)
-      : null
+    isDownloading || holdingFullBar ? lastProgressLabel.current : null
 
   const percent =
     isDownloading && status.kind === 'downloading'
       ? downloadPercent(status.downloaded, status.total)
-      : isInstalling
+      : holdingFullBar
         ? 100
         : 0
 
@@ -114,9 +158,11 @@ export function UpdateProgressView() {
                 {title}
               </p>
               <p className="text-[12px] leading-4 text-neutral-600 dark:text-neutral-400">
-                {status.kind === 'readyToRestart'
-                  ? `Version ${status.version} is ready to install.`
-                  : null}
+                {installFailed
+                  ? 'Install failed. Try again.'
+                  : status.kind === 'readyToRestart'
+                    ? `Version ${status.version} is ready to install.`
+                    : null}
               </p>
             </div>
           </div>
@@ -124,15 +170,24 @@ export function UpdateProgressView() {
             <Button
               variant="secondary"
               className="h-7 rounded-full px-4 py-2 text-sm"
+              disabled={installRequested}
               onClick={() => void api.dismissUpdateProgress()}
             >
               Later
             </Button>
             <Button
-              className="h-7 rounded-full bg-[#007aff] px-4 py-2 text-sm hover:bg-[#006ee6] dark:bg-[#0a84ff] dark:text-white"
-              onClick={() => void api.restartForUpdate()}
+              className="h-7 rounded-full bg-[#007aff] px-4 py-2 text-sm hover:bg-[#006ee6] disabled:opacity-60 dark:bg-[#0a84ff] dark:text-white"
+              disabled={installRequested}
+              onClick={() => {
+                setInstallRequested(true)
+                setInstallFailed(false)
+                void api.installAndRestart().catch(() => {
+                  setInstallRequested(false)
+                  setInstallFailed(true)
+                })
+              }}
             >
-              Restart
+              Install and restart
             </Button>
           </div>
         </main>
@@ -159,9 +214,8 @@ export function UpdateProgressView() {
                 aria-label={title}
               >
                 <div
-                  className={`h-full rounded-full bg-[#007aff] transition-[width] duration-150 ease-out dark:bg-[#0a84ff] ${
-                    isInstalling ? 'animate-pulse' : ''
-                  }`}
+                  ref={barRef}
+                  className="h-full rounded-full bg-[#007aff] transition-[width] duration-150 ease-out dark:bg-[#0a84ff]"
                   style={{ width: `${percent}%` }}
                 />
               </div>
@@ -186,7 +240,7 @@ export function UpdateProgressView() {
                 >
                   OK
                 </Button>
-              ) : (
+              ) : isDownloading ? (
                 <Button
                   variant="secondary"
                   className="h-7 shrink-0 rounded-full border border-[#007aff] px-4 py-2 text-sm dark:border-[#0a84ff]"
@@ -194,7 +248,7 @@ export function UpdateProgressView() {
                 >
                   Cancel
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         </main>

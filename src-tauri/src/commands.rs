@@ -418,8 +418,8 @@ pub fn dismiss_update_progress(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn restart_for_update(app: AppHandle) {
-    crate::updater::restart_for_update(&app);
+pub async fn install_and_restart(app: AppHandle) -> Result<(), String> {
+    crate::updater::install_and_restart(app).await
 }
 
 fn after_control(app: &AppHandle) -> Result<TimerSnapshot, String> {

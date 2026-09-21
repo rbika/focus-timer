@@ -90,9 +90,7 @@ export function SettingsView() {
   }
 
   const checking =
-    updateStatus.kind === 'checking' ||
-    updateStatus.kind === 'downloading' ||
-    updateStatus.kind === 'installing'
+    updateStatus.kind === 'checking' || updateStatus.kind === 'downloading'
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
