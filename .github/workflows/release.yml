@@ -70,7 +70,7 @@ jobs:
             echo "${delimiter}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build app and create draft release
+      - name: Build app and create release
         uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +79,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Focus Timer ${{ github.ref_name }}
           releaseBody: ${{ steps.changelog.outputs.body }}
-          releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
           releaseAssetNamePattern: 'Focus Timer [version] [arch][ext]'
