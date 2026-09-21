@@ -2,18 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { SquarePenIcon } from 'lucide-react'
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DashboardTab } from '@/features/stats/dashboard-tab'
 import { EntriesTab } from '@/features/stats/entries-tab'
 import { EntryEditor } from '@/features/stats/entry-editor'
-import {
-  StatsTabSwitch,
-  type StatsTab,
-} from '@/features/stats/stats-tab-switch'
 import type { Entry } from '@/lib/tauri'
 import { cn } from '@/utils/cn'
 
 const SLIDE_MS = 180
 const MANUAL_DRAFT_DURATION_SECS = 60
+
+type StatsTab = 'dashboard' | 'entries'
 
 function draftManualEntry(): Entry {
   const endedAtUnix = Math.floor(Date.now() / 1000)
@@ -91,12 +90,29 @@ export function StatsView({ active }: { active: boolean }) {
             : 'translate-x-0',
         )}
       >
-        <main className="flex min-h-0 flex-1 flex-col gap-3">
-          <StatsTabSwitch tab={tab} onChange={setTab} />
-          {tab === 'dashboard' ? (
-            <DashboardTab />
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col gap-1">
+        <main className="flex min-h-0 flex-1 flex-col">
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              if (value === 'dashboard' || value === 'entries') setTab(value)
+            }}
+            className="flex min-h-0 flex-col gap-3"
+          >
+            <TabsList className="mx-auto shrink-0">
+              <TabsTrigger value="dashboard" className="w-24 text-xs">
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="entries" className="w-24 text-xs">
+                Entries
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="dashboard" className="min-h-0">
+              <DashboardTab />
+            </TabsContent>
+            <TabsContent
+              value="entries"
+              className="flex min-h-0 flex-1 flex-col gap-1"
+            >
               <button
                 type="button"
                 onClick={openCreate}
@@ -105,8 +121,8 @@ export function StatsView({ active }: { active: boolean }) {
                 <SquarePenIcon className="h-3.5 w-3.5 shrink-0" /> Add entry
               </button>
               <EntriesTab onOpenEntry={openEditor} />
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
       <div
