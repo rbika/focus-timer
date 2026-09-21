@@ -347,20 +347,19 @@ export function TimerView({ active }: { active: boolean }) {
               </div>
             </div>
 
-            <div className="flex w-full items-center gap-2">
+            <div className="flex w-full items-center justify-center gap-2">
               <Button
                 variant="secondary"
                 onClick={handleCancel}
                 aria-label="Cancel timer"
-                className="flex-1 gap-1.5"
+                className="gap-1.5"
               >
                 <X className="h-3.5 w-3.5" aria-hidden />
-                Cancel
               </Button>
               <Button
                 onClick={() => void togglePause()}
                 aria-label={isRunning ? 'Pause' : 'Resume'}
-                className="flex-1 gap-1.5"
+                className="w-28 gap-1.5"
               >
                 {isRunning ? (
                   <Pause className="h-3.5 w-3.5" aria-hidden />
@@ -417,21 +416,20 @@ export function TimerView({ active }: { active: boolean }) {
                 </div>
               )}
 
-              <div className="flex w-full items-center gap-2">
+              <div className="flex w-full items-center justify-center gap-2">
                 <Button
                   variant="secondary"
                   disabled
                   aria-label="Cancel timer"
-                  className="flex-1 gap-1.5"
+                  className="gap-1.5"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden />
-                  Cancel
                 </Button>
                 <Button
                   onClick={() => void handleStart()}
                   disabled={!canStart}
                   aria-label="Start"
-                  className="flex-1 gap-1.5"
+                  className="w-28 gap-1.5"
                 >
                   <Play className="h-3.5 w-3.5" aria-hidden />
                   Start
