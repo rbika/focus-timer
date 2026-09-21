@@ -31,6 +31,7 @@ export function WindowTitleBar({
         <Button
           type="button"
           variant="ghost"
+          pressShift={false}
           onClick={navigation.onClick}
           aria-label={
             navigation.direction === 'stats' ? 'Open stats' : 'Back to timer'
@@ -49,6 +50,7 @@ export function WindowTitleBar({
         <Button
           type="button"
           variant="ghost"
+          pressShift={false}
           onClick={onOpenSettings}
           aria-label="Open settings"
           title="Settings"
