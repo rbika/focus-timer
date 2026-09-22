@@ -327,6 +327,7 @@ pub fn show_timer_window(app: AppHandle) -> Result<(), String> {
         crate::window::apply_dev_always_on_top(&window);
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
+        crate::window::focus_webview(&window);
         // Push current snapshot when shown
         let snapshot = app.state::<AppState>().snapshot();
         let _ = app.emit("timer-tick", &snapshot);
@@ -358,6 +359,7 @@ pub fn open_settings(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
+        crate::window::focus_webview(&window);
     }
     Ok(())
 }

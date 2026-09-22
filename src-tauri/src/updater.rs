@@ -432,6 +432,7 @@ fn show_up_to_date_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("up-to-date") {
         let _ = window.show();
         let _ = window.set_focus();
+        crate::window::focus_webview(&window);
     }
 }
 
@@ -439,6 +440,7 @@ fn show_update_available_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(UPDATE_AVAILABLE_WINDOW) {
         let _ = window.show();
         let _ = window.set_focus();
+        crate::window::focus_webview(&window);
     }
 }
 
@@ -452,6 +454,7 @@ fn show_update_progress_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(UPDATE_PROGRESS_WINDOW) {
         let _ = window.show();
         let _ = window.set_focus();
+        crate::window::focus_webview(&window);
     }
 }
 

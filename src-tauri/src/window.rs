@@ -24,6 +24,36 @@ pub fn apply_dev_always_on_top(window: &WebviewWindow) {
     }
 }
 
+/// Hands keyboard focus to the webview.
+///
+/// Every window here is declared `"visible": false`, so AppKit never makes it
+/// key at creation time and never assigns it a first responder — key events
+/// reach the window but nothing in it, and the webview stays deaf until the
+/// user clicks. A window keeps its first responder across hide/show, so this
+/// only has to win on the first show.
+#[cfg(target_os = "macos")]
+pub fn focus_webview(window: &WebviewWindow) {
+    let _ = window.with_webview(|webview| {
+        use objc2_app_kit::{NSResponder, NSView, NSWindow};
+
+        if objc2::MainThreadMarker::new().is_none() {
+            return;
+        }
+        let ns_window = webview.ns_window() as *mut NSWindow;
+        let view = webview.inner() as *mut NSView;
+        if ns_window.is_null() || view.is_null() {
+            return;
+        }
+        unsafe {
+            let responder: &NSResponder = &*view;
+            (*ns_window).makeFirstResponder(Some(responder));
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn focus_webview(_window: &WebviewWindow) {}
+
 /// Which content the main window is currently showing — drives the
 /// animated resize between the compact Timer footprint and the larger
 /// Stats view.
