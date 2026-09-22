@@ -188,11 +188,28 @@ fn start_tick_loop(app: tauri::AppHandle) {
                 }
             }
 
-            let finished_interval = {
+            // Sleep that jumps the wall clock over midnight still reaches
+            // here when pause-on-sleep is off, so the split is retroactive.
+            let now = SystemTime::now();
+            let (splits, finished_interval) = {
                 let mut engine = state.engine.lock().expect("engine");
-                engine.tick(SystemTime::now())
+                let splits = engine.split_crossed_midnight(now);
+                let finished_interval = engine.tick(now);
+                (splits, finished_interval)
             };
             let completed = finished_interval.is_some();
+            let split = !splits.is_empty();
+            if split {
+                // Anchor first, entry second. A crash in between drops the
+                // pre-midnight entry once; the reverse order would record it
+                // again on the next launch.
+                let _ = state.persist();
+                let mut ticks = state.ticks_since_persist.lock().expect("ticks");
+                *ticks = 0;
+            }
+            for interval in splits {
+                commands::finalize_interval(&app, Some(interval));
+            }
             commands::finalize_interval(&app, finished_interval);
 
             let snapshot = state.snapshot();

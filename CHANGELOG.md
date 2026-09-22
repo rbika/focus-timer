@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dashboard totals include the active interval and update while the timer or stopwatch is running.
 - The Entries list shows the active interval as a live, non-clickable running card.
+- A running timer or stopwatch that crosses local midnight is recorded through 23:59:59 and continues as a new interval at 00:00:00, without interrupting the countdown or the stopwatch.
 
 ### Fixed
 

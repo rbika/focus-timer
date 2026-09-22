@@ -163,7 +163,7 @@ impl Persistence {
                 TimerStatus::Running => {
                     if let Some(started_at_unix) = state.timer.started_at_unix {
                         let started_at = UNIX_EPOCH + Duration::from_secs(started_at_unix);
-                        engine.restore_stopwatch_running(started_at, now);
+                        engine.restore_stopwatch_running(started_at, state.timer.elapsed_at_pause);
                     } else {
                         engine.set_mode(TimerMode::Stopwatch);
                         engine.reset(now);
@@ -232,6 +232,7 @@ impl Persistence {
 mod tests {
     use super::*;
     use crate::timer::TimerStatus;
+    use chrono::TimeZone;
     use std::time::Duration;
 
     #[test]
@@ -463,6 +464,47 @@ mod tests {
         assert_eq!(loaded_engine.mode(), TimerMode::Stopwatch);
         assert_eq!(loaded_engine.status(), TimerStatus::Paused);
         assert_eq!(loaded_engine.elapsed_at_pause(), 42);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn local_dt(y: i32, m: u32, d: u32, h: u32, min: u32, s: u32) -> SystemTime {
+        let naive = chrono::NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(h, min, s)
+            .unwrap();
+        let dt = chrono::Local.from_local_datetime(&naive).single().unwrap();
+        UNIX_EPOCH + Duration::from_secs(dt.timestamp() as u64)
+    }
+
+    #[test]
+    fn running_stopwatch_roundtrip_keeps_post_midnight_interval() {
+        let dir = std::env::temp_dir().join(format!(
+            "focus-timer-stopwatch-midnight-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let persistence = Persistence::new(dir.clone());
+
+        let mut engine = TimerEngine::new(60);
+        engine.set_mode(TimerMode::Stopwatch);
+        let start = local_dt(2026, 6, 15, 23, 0, 0);
+        let after = local_dt(2026, 6, 16, 0, 30, 0);
+        engine.start(start);
+        assert_eq!(engine.split_crossed_midnight(after).len(), 1);
+        persistence
+            .save(&Settings::default(), &engine, None, &UpdaterMeta::default())
+            .unwrap();
+
+        let (_, mut loaded_engine, _, _) = persistence.load();
+        assert_eq!(loaded_engine.mode(), TimerMode::Stopwatch);
+        assert_eq!(loaded_engine.status(), TimerStatus::Running);
+        assert_eq!(loaded_engine.elapsed_secs(after), 90 * 60);
+        assert_eq!(loaded_engine.current_interval_elapsed_secs(after), 30 * 60);
+        assert!(loaded_engine.split_crossed_midnight(after).is_empty());
 
         let _ = fs::remove_dir_all(dir);
     }
