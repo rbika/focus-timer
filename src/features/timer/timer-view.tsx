@@ -170,6 +170,19 @@ export function TimerView({ active }: { active: boolean }) {
     })
   }, [snapshot?.status, snapshot?.durationSecs])
 
+  const handleCancel = useCallback(() => {
+    const current = useTimerStore.getState().snapshot
+    if (current?.status === 'running' && current.intervalElapsedSecs > 10) {
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
+      setDialog('open')
+      return
+    }
+    void reset()
+  }, [reset])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey && event.key === ',') {
@@ -182,6 +195,32 @@ export function TimerView({ active }: { active: boolean }) {
         void api.quitApp()
         return
       }
+      if (event.metaKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        if (dialog !== 'closed' || !snapshot) return
+        const isActive =
+          snapshot.status === 'running' || snapshot.status === 'paused'
+        if (isActive) {
+          void togglePause()
+        } else {
+          void handleStart()
+        }
+        return
+      }
+      if (event.metaKey && event.key.toLowerCase() === 'x') {
+        if (isTextInput(event.target)) return
+        if (dialog !== 'closed') {
+          event.preventDefault()
+          return
+        }
+        const current = useTimerStore.getState().snapshot
+        const isActive =
+          current?.status === 'running' || current?.status === 'paused'
+        if (!isActive) return
+        event.preventDefault()
+        handleCancel()
+        return
+      }
       if (event.key === 'Escape') {
         event.preventDefault()
         if (dialog !== 'closed') {
@@ -191,34 +230,10 @@ export function TimerView({ active }: { active: boolean }) {
         void api.hideTimerWindow()
         return
       }
-      if (event.code === 'Space') {
-        if (dialog !== 'closed') return
-        const target = event.target as HTMLElement | null
-        const tag = target?.tagName
-        // Don't hijack space while typing in a field or activating a
-        // focused button (which already handles space via its own click).
-        if (
-          tag === 'INPUT' ||
-          tag === 'TEXTAREA' ||
-          tag === 'BUTTON' ||
-          target?.isContentEditable
-        ) {
-          return
-        }
-        event.preventDefault()
-        if (!snapshot) return
-        const isActive =
-          snapshot.status === 'running' || snapshot.status === 'paused'
-        if (isActive) {
-          void togglePause()
-        } else {
-          void handleStart()
-        }
-      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [snapshot, togglePause, handleStart, dialog, closeDialog])
+  }, [snapshot, togglePause, handleStart, handleCancel, dialog, closeDialog])
 
   useEffect(() => {
     if (!active) closeDialog(false)
@@ -245,19 +260,6 @@ export function TimerView({ active }: { active: boolean }) {
       }
     }
   }, [])
-
-  const handleCancel = useCallback(() => {
-    const current = useTimerStore.getState().snapshot
-    if (current?.status === 'running' && current.intervalElapsedSecs > 10) {
-      if (closeTimerRef.current != null) {
-        window.clearTimeout(closeTimerRef.current)
-        closeTimerRef.current = null
-      }
-      setDialog('open')
-      return
-    }
-    void reset()
-  }, [reset])
 
   if (!ready || !snapshot) {
     return (
@@ -449,5 +451,13 @@ export function TimerView({ active }: { active: boolean }) {
         />
       ) : null}
     </div>
+  )
+}
+
+function isTextInput(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
   )
 }

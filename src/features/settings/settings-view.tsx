@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { PresetDurationInput } from '@/features/settings/preset-duration-input'
+import { ShortcutsSection } from '@/features/settings/shortcuts-section'
 import {
   api,
   NO_COMPLETION_SOUND,
@@ -35,6 +36,7 @@ const SETTINGS_TABS = [
   ['general', 'General'],
   ['timer', 'Timer'],
   ['notifications', 'Notifications'],
+  ['shortcuts', 'Shortcuts'],
   ['updates', 'Updates'],
   ['about', 'About'],
 ] as const
@@ -272,6 +274,10 @@ export function SettingsView() {
               </SettingsGroupItem>
             </SettingsGroupContent>
           </SettingsGroup>
+        </TabsContent>
+
+        <TabsContent value="shortcuts" className={tabPanelClassName}>
+          <ShortcutsSection />
         </TabsContent>
 
         <TabsContent value="updates" className={tabPanelClassName}>

@@ -73,7 +73,10 @@ pub fn run() {
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            {
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                window::unbind_cut_key_equivalent();
+            }
 
             let data_dir = app
                 .path()

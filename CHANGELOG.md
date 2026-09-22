@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New
 
+- **Keyboard shortcuts** — ⌘S starts a timer or stopwatch, or pauses and resumes a running one. ⌘X cancels it. Start, pause, and resume moved off the Space bar. The full list is in Settings → Shortcuts.
 - New completion sounds.
 
 ### Improved

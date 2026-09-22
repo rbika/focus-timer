@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, WebviewWindow};
 
+#[cfg(target_os = "macos")]
+use objc2_app_kit::NSMenu;
+
 /// Dev-only pin for the main window.
 ///
 /// - Release builds always return `false` (shipping apps never pin).
@@ -53,6 +56,46 @@ pub fn focus_webview(window: &WebviewWindow) {
 
 #[cfg(not(target_os = "macos"))]
 pub fn focus_webview(_window: &WebviewWindow) {}
+
+/// Drops the ⌘X key equivalent from Edit → Cut.
+///
+/// Tauri's default app menu binds Cut to ⌘X. AppKit answers that in
+/// `performKeyEquivalent:` before the event ever reaches the webview, so the
+/// timer's cancel shortcut (also ⌘X) never sees a `keydown`. Cut still works
+/// from the menu and from text fields, where the webview handles it itself
+/// once the key is no longer claimed by the menu.
+#[cfg(target_os = "macos")]
+pub fn unbind_cut_key_equivalent() {
+    use objc2_app_kit::NSApplication;
+
+    let Some(mtm) = objc2::MainThreadMarker::new() else {
+        return;
+    };
+    let Some(menu) = NSApplication::sharedApplication(mtm).mainMenu() else {
+        return;
+    };
+    clear_cut_key_equivalent(&menu);
+}
+
+#[cfg(target_os = "macos")]
+fn clear_cut_key_equivalent(menu: &NSMenu) {
+    use objc2::sel;
+    use objc2_foundation::NSString;
+
+    let cut = sel!(cut:);
+    let count = menu.numberOfItems();
+    for index in 0..count {
+        let Some(item) = menu.itemAtIndex(index) else {
+            continue;
+        };
+        if item.action() == Some(cut) {
+            item.setKeyEquivalent(&NSString::new());
+        }
+        if let Some(submenu) = item.submenu() {
+            clear_cut_key_equivalent(&submenu);
+        }
+    }
+}
 
 /// Which content the main window is currently showing — drives the
 /// animated resize between the compact Timer footprint and the larger
