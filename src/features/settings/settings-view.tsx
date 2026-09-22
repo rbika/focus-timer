@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+import { openUrl } from '@tauri-apps/plugin-opener'
+
 import {
   SettingsGroup,
   SettingsGroupContent,
@@ -11,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { WindowTitleBar } from '@/components/window-title-bar'
 import { PresetDurationInput } from '@/features/settings/preset-duration-input'
 import {
@@ -22,10 +25,28 @@ import {
   type UpdateStatus,
 } from '@/lib/tauri'
 import { useTimerStore } from '@/store/timer-store'
+import appIcon from '../../../src-tauri/icons/128x128@2x.png'
+
+const REPO_URL = 'https://github.com/rbika/focus-timer'
 
 const PRESET_LABELS = ['Preset 1', 'Preset 2', 'Preset 3'] as const
 
+const SETTINGS_TABS = [
+  ['general', 'General'],
+  ['timer', 'Timer'],
+  ['notifications', 'Notifications'],
+  ['updates', 'Updates'],
+  ['about', 'About'],
+] as const
+
+type SettingsTab = (typeof SETTINGS_TABS)[number][0]
+
+const tabPanelClassName =
+  'flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-none pb-8'
+
 export function SettingsView() {
+  // The settings window stays mounted until quit, so the open tab lasts until then.
+  const [tab, setTab] = useState<SettingsTab>('general')
   const settings = useTimerStore((s) => s.settings)
   const saveSettings = useTimerStore((s) => s.actions.saveSettings)
   const [sounds, setSounds] = useState<string[]>([])
@@ -95,197 +116,243 @@ export function SettingsView() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <WindowTitleBar title="Settings" />
-      <main className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-none px-5 pt-4 pb-8">
-        <SettingsGroup>
-          <SettingsGroupTitle>General Behavior</SettingsGroupTitle>
-          <SettingsGroupContent>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="start-at-login">
-                Start at login
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="start-at-login"
-                  checked={settings.startAtLogin}
-                  onCheckedChange={(value) => update('startAtLogin', value)}
-                  aria-label="Start at login"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="hide-on-start">
-                Hide window when timer starts
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="hide-on-start"
-                  checked={settings.hideWindowOnStart}
-                  onCheckedChange={(value) =>
-                    update('hideWindowOnStart', value)
-                  }
-                  aria-label="Hide window when timer starts"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="pause-on-sleep">
-                Pause when Mac sleeps
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="pause-on-sleep"
-                  checked={settings.pauseOnSleep}
-                  onCheckedChange={(value) => update('pauseOnSleep', value)}
-                  aria-label="Pause when Mac sleeps"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-          </SettingsGroupContent>
-        </SettingsGroup>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          if (isSettingsTab(value)) setTab(value)
+        }}
+        className="min-h-0 flex-1 gap-5 px-5 pt-4"
+      >
+        <TabsList className="mx-auto shrink-0 gap-2">
+          {SETTINGS_TABS.map(([value, label]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex-none text-xs"
+            >
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        <SettingsGroup>
-          <SettingsGroupTitle>Presets</SettingsGroupTitle>
-          <SettingsGroupContent>
-            {PRESET_LABELS.map((label, index) => (
-              <SettingsGroupItem key={label}>
-                <SettingsGroupItemLabel htmlFor={`preset-${index}`}>
-                  {label}
+        <TabsContent value="general" className={tabPanelClassName}>
+          <SettingsGroup>
+            <SettingsGroupTitle>Behavior</SettingsGroupTitle>
+            <SettingsGroupContent>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="start-at-login">
+                  Start at login
                 </SettingsGroupItemLabel>
                 <SettingsGroupItemControl>
-                  <PresetDurationInput
-                    id={`preset-${index}`}
-                    label={label}
-                    valueSecs={settings.presets[index]}
-                    onCommit={(secs) => updatePreset(index, secs)}
+                  <Switch
+                    id="start-at-login"
+                    checked={settings.startAtLogin}
+                    onCheckedChange={(value) => update('startAtLogin', value)}
+                    aria-label="Start at login"
                   />
                 </SettingsGroupItemControl>
               </SettingsGroupItem>
-            ))}
-          </SettingsGroupContent>
-        </SettingsGroup>
-
-        <SettingsGroup>
-          <SettingsGroupTitle>Appearance</SettingsGroupTitle>
-          <SettingsGroupContent>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="icon-only">
-                Icon only in menu bar
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="icon-only"
-                  checked={settings.iconOnly}
-                  onCheckedChange={(value) => update('iconOnly', value)}
-                  aria-label="Icon only in menu bar"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-          </SettingsGroupContent>
-        </SettingsGroup>
-
-        <SettingsGroup>
-          <SettingsGroupTitle>Notifications</SettingsGroupTitle>
-          <SettingsGroupContent>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="notifications-enabled">
-                Allow notifications
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="notifications-enabled"
-                  checked={settings.notificationsEnabled}
-                  onCheckedChange={(value) =>
-                    update('notificationsEnabled', value)
-                  }
-                  aria-label="Allow notifications"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="completion-sound">
-                Completion sound
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Select
-                  id="completion-sound"
-                  value={settings.completionSound}
-                  onChange={(e) => {
-                    const name = e.target.value
-                    update('completionSound', name)
-                    if (name !== NO_COMPLETION_SOUND) {
-                      void api.previewSound(name)
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="hide-on-start">
+                  Hide window when timer starts
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Switch
+                    id="hide-on-start"
+                    checked={settings.hideWindowOnStart}
+                    onCheckedChange={(value) =>
+                      update('hideWindowOnStart', value)
                     }
-                  }}
-                >
-                  <option value={NO_COMPLETION_SOUND}>None</option>
-                  {sounds.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-          </SettingsGroupContent>
-        </SettingsGroup>
+                    aria-label="Hide window when timer starts"
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="pause-on-sleep">
+                  Pause when Mac sleeps
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Switch
+                    id="pause-on-sleep"
+                    checked={settings.pauseOnSleep}
+                    onCheckedChange={(value) => update('pauseOnSleep', value)}
+                    aria-label="Pause when Mac sleeps"
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+            </SettingsGroupContent>
+          </SettingsGroup>
 
-        <SettingsGroup>
-          <SettingsGroupTitle>Updates</SettingsGroupTitle>
-          <SettingsGroupContent>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="auto-check-updates">
-                Automatically check for updates
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl>
-                <Switch
-                  id="auto-check-updates"
-                  checked={settings.autoCheckForUpdates}
-                  onCheckedChange={(value) =>
-                    update('autoCheckForUpdates', value)
-                  }
-                  aria-label="Automatically check for updates"
-                />
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-            <SettingsGroupItem>
-              <SettingsGroupItemLabel htmlFor="check-now">
-                Check for updates
-              </SettingsGroupItemLabel>
-              <SettingsGroupItemControl className="gap-2">
-                <Button
-                  id="check-now"
-                  variant="secondary"
-                  disabled={checking}
-                  onClick={() => {
-                    void api
-                      .checkForUpdates()
-                      .then(setUpdateStatus)
-                      .catch(() => {
-                        // Status events already cover failures.
-                      })
-                  }}
-                >
-                  Check now
-                </Button>
-              </SettingsGroupItemControl>
-            </SettingsGroupItem>
-          </SettingsGroupContent>
-        </SettingsGroup>
+          <SettingsGroup>
+            <SettingsGroupTitle>Appearance</SettingsGroupTitle>
+            <SettingsGroupContent>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="icon-only">
+                  Icon only in menu bar
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Switch
+                    id="icon-only"
+                    checked={settings.iconOnly}
+                    onCheckedChange={(value) => update('iconOnly', value)}
+                    aria-label="Icon only in menu bar"
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+            </SettingsGroupContent>
+          </SettingsGroup>
+        </TabsContent>
 
-        <section className="mt-auto flex flex-col items-center gap-2 pt-4 pb-2 text-center">
-          <p className="text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
-            {appName}
-          </p>
-          <div className="flex gap-2">
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              {appVersion ? `Version ${appVersion}` : '\u00a0'}
+        <TabsContent value="timer" keepMounted className={tabPanelClassName}>
+          <SettingsGroup>
+            <SettingsGroupTitle>Presets</SettingsGroupTitle>
+            <SettingsGroupContent>
+              {PRESET_LABELS.map((label, index) => (
+                <SettingsGroupItem key={label}>
+                  <SettingsGroupItemLabel htmlFor={`preset-${index}`}>
+                    {label}
+                  </SettingsGroupItemLabel>
+                  <SettingsGroupItemControl>
+                    <PresetDurationInput
+                      id={`preset-${index}`}
+                      label={label}
+                      valueSecs={settings.presets[index]}
+                      onCommit={(secs) => updatePreset(index, secs)}
+                    />
+                  </SettingsGroupItemControl>
+                </SettingsGroupItem>
+              ))}
+            </SettingsGroupContent>
+          </SettingsGroup>
+        </TabsContent>
+
+        <TabsContent value="notifications" className={tabPanelClassName}>
+          <SettingsGroup>
+            <SettingsGroupTitle>Notifications</SettingsGroupTitle>
+            <SettingsGroupContent>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="notifications-enabled">
+                  Allow notifications
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Switch
+                    id="notifications-enabled"
+                    checked={settings.notificationsEnabled}
+                    onCheckedChange={(value) =>
+                      update('notificationsEnabled', value)
+                    }
+                    aria-label="Allow notifications"
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="completion-sound">
+                  Completion sound
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Select
+                    id="completion-sound"
+                    value={settings.completionSound}
+                    onChange={(e) => {
+                      const name = e.target.value
+                      update('completionSound', name)
+                      if (name !== NO_COMPLETION_SOUND) {
+                        void api.previewSound(name)
+                      }
+                    }}
+                  >
+                    <option value={NO_COMPLETION_SOUND}>None</option>
+                    {sounds.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+            </SettingsGroupContent>
+          </SettingsGroup>
+        </TabsContent>
+
+        <TabsContent value="updates" className={tabPanelClassName}>
+          <SettingsGroup>
+            <SettingsGroupTitle>Updates</SettingsGroupTitle>
+            <SettingsGroupContent>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="auto-check-updates">
+                  Automatically check for updates
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl>
+                  <Switch
+                    id="auto-check-updates"
+                    checked={settings.autoCheckForUpdates}
+                    onCheckedChange={(value) =>
+                      update('autoCheckForUpdates', value)
+                    }
+                    aria-label="Automatically check for updates"
+                  />
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+              <SettingsGroupItem>
+                <SettingsGroupItemLabel htmlFor="check-now">
+                  Check for updates
+                </SettingsGroupItemLabel>
+                <SettingsGroupItemControl className="gap-2">
+                  <Button
+                    id="check-now"
+                    variant="secondary"
+                    disabled={checking}
+                    onClick={() => {
+                      void api
+                        .checkForUpdates()
+                        .then(setUpdateStatus)
+                        .catch(() => {
+                          // Status events already cover failures.
+                        })
+                    }}
+                  >
+                    Check now
+                  </Button>
+                </SettingsGroupItemControl>
+              </SettingsGroupItem>
+            </SettingsGroupContent>
+          </SettingsGroup>
+        </TabsContent>
+
+        <TabsContent value="about" className="flex justify-center">
+          <section className="mt-5 flex flex-col items-center text-center">
+            <img src={appIcon} alt="" className="mb-3 size-16" aria-hidden />
+            <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+              {appName}
             </p>
-            <p className="text-xs text-neutral-400 dark:text-neutral-500">
-              © {new Date().getFullYear()} rbika
+            <div className="mt-1 flex gap-2">
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">
+                {appVersion ? `Version ${appVersion}` : '\u00a0'}
+              </p>
+            </div>
+
+            <p className="mt-6 text-xs text-neutral-400 dark:text-neutral-500">
+              Focus Timer is free and open-source.
             </p>
-          </div>
-        </section>
-      </main>
+            <p>
+              <a
+                href={REPO_URL}
+                className="text-xs text-[#007aff] hover:underline dark:text-[#0a84ff]"
+                onClick={(event) => {
+                  event.preventDefault()
+                  void openUrl(REPO_URL)
+                }}
+              >
+                View on Github
+              </a>
+            </p>
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
   )
+}
+
+function isSettingsTab(value: unknown): value is SettingsTab {
+  return SETTINGS_TABS.some(([tab]) => tab === value)
 }

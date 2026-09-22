@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New completion sounds.
 
+### Improved
+
+- Settings is now organized into Tabs.
+
 ## v1.11.0
 
 ### New
