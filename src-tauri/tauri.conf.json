@@ -112,7 +112,9 @@
     ],
     "resources": {
       "../sounds/door-bell.mp3": "sounds/door-bell.mp3",
-      "../sounds/hello.mp3": "sounds/hello.mp3"
+      "../sounds/hello.mp3": "sounds/hello.mp3",
+      "../sounds/reward.mp3": "sounds/reward.mp3",
+      "../sounds/xmas.mp3": "sounds/xmas.mp3"
     }
   },
   "plugins": {
