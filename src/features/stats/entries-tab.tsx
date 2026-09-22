@@ -3,7 +3,8 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { ChevronRight, Hourglass, SquarePen, Timer } from 'lucide-react'
 
 import { groupEntriesByDay } from '@/features/stats/group-entries-by-day'
-import { useEntries } from '@/features/stats/use-entries'
+import { ACTIVE_ENTRY_ID } from '@/features/stats/live-entries'
+import { useLiveEntries } from '@/features/stats/use-live-entries'
 import type { Entry } from '@/lib/tauri'
 import { secsToSummaryLabel } from '@/utils/time'
 
@@ -95,12 +96,35 @@ function EntryCard({
   )
 }
 
+function RunningEntryCard({ entry }: { entry: Entry }) {
+  const TypeIcon = typeIcon(entry.mode)
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-[10px] bg-neutral-100/60 px-3.5 py-2.5 text-left last:mb-4 dark:bg-neutral-800/60">
+      <TypeIcon
+        className="h-3.5 w-3.5 shrink-0 text-neutral-400 dark:text-neutral-400"
+        aria-label={typeLabel(entry.mode)}
+      />
+      <span className="shrink-0 text-[13px] font-medium text-neutral-900 tabular-nums dark:text-neutral-50">
+        {secsToSummaryLabel(entry.durationSecs)}
+      </span>
+      <span className="ml-2 min-w-0 truncate text-xs text-neutral-400 dark:text-neutral-400">
+        Running…
+      </span>
+      <span
+        className="pulse-dot ml-auto size-1.5 shrink-0 rounded-full bg-current text-neutral-300 dark:text-neutral-600"
+        aria-hidden
+      />
+    </div>
+  )
+}
+
 export function EntriesTab({
   onOpenEntry,
 }: {
   onOpenEntry: (entry: Entry) => void
 }) {
-  const entries = useEntries()
+  const entries = useLiveEntries()
   const scrollerRef = useRef<HTMLDivElement>(null)
   const sections = entries ? groupEntriesByDay(entries) : []
   useStickyHeaderFade(scrollerRef, sections.length)
@@ -132,9 +156,13 @@ export function EntriesTab({
               {secsToSummaryLabel(section.totalSecs)}
             </span>
           </header>
-          {section.entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
-          ))}
+          {section.entries.map((entry) =>
+            entry.id === ACTIVE_ENTRY_ID ? (
+              <RunningEntryCard key={entry.id} entry={entry} />
+            ) : (
+              <EntryCard key={entry.id} entry={entry} onOpen={onOpenEntry} />
+            ),
+          )}
         </section>
       ))}
     </div>

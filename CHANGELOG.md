@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### New
 
 - Dashboard totals include the active interval and update while the timer or stopwatch is running.
+- The Entries list shows the active interval as a live, non-clickable running card.
 
 ### Fixed
 
