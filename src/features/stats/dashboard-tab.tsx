@@ -1,4 +1,4 @@
-import { useTotals } from '@/features/stats/use-totals'
+import { useLiveTotals } from '@/features/stats/use-live-totals'
 import { cn } from '@/utils/cn'
 import { secsToSummaryLabel } from '@/utils/time'
 
@@ -49,7 +49,7 @@ function StatTile({
 }
 
 export function DashboardTab() {
-  const totals = useTotals()
+  const totals = useLiveTotals()
 
   return (
     <div className="flex flex-col gap-2">
