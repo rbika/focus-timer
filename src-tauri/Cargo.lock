@@ -1055,6 +1055,7 @@ name = "focus-timer"
 version = "1.11.0"
 dependencies = [
  "chrono",
+ "dispatch2",
  "dotenvy",
  "objc2",
  "objc2-app-kit",

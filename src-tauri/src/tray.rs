@@ -64,7 +64,7 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
             match button {
                 MouseButton::Left => toggle_main_window_from_tray(tray.app_handle()),
-                MouseButton::Right => show_tray_menu(tray.app_handle()),
+                MouseButton::Right => show_tray_menu_deferred(tray.app_handle()),
                 MouseButton::Middle => {}
             }
         })
@@ -120,6 +120,20 @@ fn toggle_main_window_from_tray(app: &AppHandle) {
     } else if !is_recent_main_window_hide() {
         let _ = crate::commands::show_timer_window(app.clone());
     }
+}
+
+/// The popup's modal tracking loop blocks until the menu closes. Run inside
+/// tao's event callback, it stalls all main-thread dispatch (tray title,
+/// `timer-tick`) for that whole time, so it must run from the GCD main queue.
+#[cfg(target_os = "macos")]
+fn show_tray_menu_deferred(app: &AppHandle) {
+    let app = app.clone();
+    dispatch2::DispatchQueue::main().exec_async(move || show_tray_menu(&app));
+}
+
+#[cfg(not(target_os = "macos"))]
+fn show_tray_menu_deferred(app: &AppHandle) {
+    show_tray_menu(app);
 }
 
 fn show_tray_menu(app: &AppHandle) {
