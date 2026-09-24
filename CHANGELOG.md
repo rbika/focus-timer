@@ -5,16 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v1.12.0
 
 ### New
 
-- **Keyboard shortcuts** — ⌘S starts a timer or stopwatch, or pauses and resumes a running one. ⌘X cancels it. Start, pause, and resume moved off the Space bar. The full list is in Settings → Shortcuts.
+- **Keyboard shortcuts** — See the full list in Settings → Shortcuts.
 - New completion sounds.
 
 ### Improved
 
 - Settings is now organized into Tabs.
+
+### Fixed
+
+- Fixed the timer value freezing while tray menu is open.
 
 ## v1.11.0
 
